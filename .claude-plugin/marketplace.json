@@ -1,0 +1,27 @@
+{
+  "name": "trunk-sync",
+  "owner": {
+    "name": "Eli Mydlarz"
+  },
+  "metadata": {
+    "description": "trunk-sync plugin marketplace",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "trunk-sync",
+      "source": {
+        "source": "github",
+        "repo": "elimydlarz/trunk-sync"
+      },
+      "description": "Auto-commit and push every file edit, keeping multiple agents in sync on trunk",
+      "version": "1.0.0",
+      "author": {
+        "name": "Eli Mydlarz"
+      },
+      "repository": "https://github.com/elimydlarz/trunk-sync",
+      "license": "MIT",
+      "keywords": ["hooks", "git", "multi-agent", "sync", "trunk-based-development"]
+    }
+  ]
+}
