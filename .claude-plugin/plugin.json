@@ -1,0 +1,12 @@
+{
+  "name": "trunk-sync",
+  "version": "1.0.0",
+  "description": "Auto-commit and push every file edit, keeping multiple agents in sync on trunk",
+  "author": {
+    "name": "Eli Mydlarz"
+  },
+  "repository": "https://github.com/elimydlarz/trunk-sync",
+  "license": "MIT",
+  "keywords": ["hooks", "git", "multi-agent", "sync", "trunk-based-development"],
+  "hooks": "./hooks/hooks.json"
+}

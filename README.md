@@ -1,12 +1,25 @@
 # trunk-sync
 
-A Claude Code hook that auto-commits and pushes every file edit, keeping multiple agents in sync on a shared branch.
+A Claude Code plugin that auto-commits and pushes every file edit, keeping multiple agents in sync on a shared branch.
 
-Each agent runs in its own git worktree (`claude -w`), fully isolated from other agents. The hook continuously integrates every edit to `origin/main` — same mechanism whether the conflicting change came from a local worktree or a remote machine.
+Each agent runs in its own git worktree (`claude -w`), fully isolated from other agents. The plugin continuously integrates every edit to `origin/main` — same mechanism whether the conflicting change came from a local worktree or a remote machine.
 
-## Quick start
+## Install
 
-Share this repo's URL with your coding agent and ask it to install trunk-sync into your project. The agent will read the CLAUDE.md here and follow the installation steps.
+```
+/plugin install github:elimydlarz/trunk-sync
+```
+
+## Prerequisites
+
+- `jq` on the machine running Claude Code
+- A git repo with a remote (the hook pushes after every commit)
+
+## Running multiple agents
+
+```bash
+claude -w    # each invocation gets its own worktree
+```
 
 ## How it works
 
@@ -19,17 +32,6 @@ After every `Edit` or `Write` tool use, the hook:
 5. On merge conflict, tells the agent to resolve by editing the file normally
 
 The hook works from any branch — `main`, a worktree branch, or anything else. It always syncs against `origin/main`.
-
-## Prerequisites
-
-- `jq` on the machine running Claude Code
-- A git repo with a remote (the hook pushes after every commit)
-
-## Running multiple agents
-
-```bash
-claude -w    # each invocation gets its own worktree
-```
 
 ## How conflicts work
 
@@ -52,9 +54,9 @@ Find all commits from one session: `git log --grep='877a28bc'`
 ## What gets installed
 
 ```
-.claude/hooks/trunk-sync.sh     — the hook script
-.claude/settings.json            — registers the hook on Edit|Write
-.claude/rules/trunk-sync.md     — tells agents not to make manual commits
+scripts/trunk-sync.sh     — the hook script
+hooks/hooks.json           — registers the hook on Edit|Write
+rules/trunk-sync.md        — tells agents not to make manual commits
 ```
 
 ## Tests
@@ -63,4 +65,4 @@ Find all commits from one session: `git log --grep='877a28bc'`
 bash test/trunk-sync.test.sh
 ```
 
-34 tests, TAP output, isolated temp repos with worktrees. Safe to run anywhere.
+41 tests, TAP output, isolated temp repos with worktrees. Safe to run anywhere.
