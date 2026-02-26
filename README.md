@@ -1,8 +1,8 @@
 # trunk-sync
 
-A Claude Code plugin that auto-commits and pushes every file edit, keeping multiple agents in sync on a shared branch.
+Maximum continuous integration for multi-agent coding. Every file edit is committed and pushed to `origin/main` immediately — not per-task, not per-session, every single edit.
 
-Each agent runs in its own git worktree (`claude -w`), fully isolated from other agents. The plugin continuously integrates every edit to `origin/main` — same mechanism whether the conflicting change came from a local worktree or a remote machine.
+Agents run in git worktrees (`claude -w`), fully isolated from each other. Whether two agents collide on the same file from worktrees on one machine or from separate machines across the world, the conflict resolution works identically: git merge conflicts, agent edits out the markers, hook completes the merge.
 
 ## Install
 
