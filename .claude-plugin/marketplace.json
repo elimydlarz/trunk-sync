@@ -15,7 +15,6 @@
         "repo": "elimydlarz/trunk-sync"
       },
       "description": "Auto-commit and push every file edit, keeping multiple agents in sync on trunk",
-      "version": "1.0.0",
       "author": {
         "name": "Eli Mydlarz"
       },

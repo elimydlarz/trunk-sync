@@ -6,8 +6,12 @@ Each agent runs in its own git worktree (`claude -w`), fully isolated from other
 
 ## Install
 
-```
-/plugin install github:elimydlarz/trunk-sync
+```bash
+# Add the marketplace (one-time)
+claude plugin marketplace add elimydlarz/trunk-sync
+
+# Install (use --scope project to share with your team via .claude/settings.json)
+claude plugin install trunk-sync@trunk-sync --scope project
 ```
 
 ## Prerequisites
