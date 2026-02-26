@@ -1,7 +1,7 @@
 {
   "name": "trunk-sync",
   "version": "1.0.0",
-  "description": "Auto-commit and push every file edit, keeping multiple agents in sync on trunk",
+  "description": "Maximum continuous integration for multi-agent coding — every edit is committed and pushed to trunk immediately",
   "author": {
     "name": "Eli Mydlarz"
   },
