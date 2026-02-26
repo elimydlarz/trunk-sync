@@ -43,7 +43,7 @@ The hook works from any branch — `main`, a worktree branch, or anything else. 
 
 When two agents edit the same file, `git pull` produces a merge conflict. The hook sends feedback (exit code 2) telling the agent the file has conflict markers. The agent reads the file, removes the markers with a normal edit, and the hook detects the merge state and completes the sync automatically.
 
-No manual git intervention needed.
+This works identically regardless of topology — two worktrees on one laptop, ten agents spread across CI runners, or any mix. The conflict path is always: git merge conflict → agent edits the file → hook completes the merge. No manual git intervention needed.
 
 ## Commit messages
 
