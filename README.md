@@ -35,6 +35,8 @@ After every `Edit` or `Write` tool use, the hook:
 4. Retries once if another agent pushed between pull and push
 5. On merge conflict, tells the agent to resolve by editing the file normally
 
+Every edit is integrated immediately, so agents always work against near-current trunk. The longer you wait to integrate, the harder conflicts get — trunk-sync makes the wait zero.
+
 The hook works from any branch — `main`, a worktree branch, or anything else. It always syncs against `origin/main`.
 
 ## How conflicts work
