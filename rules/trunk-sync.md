@@ -18,7 +18,11 @@ Another agent changed the same file. Git left conflict markers in the file. Just
 
 Do NOT run git commands to resolve — just fix the file contents.
 
+## Before you start
+
+Run `git pull` once at the beginning of your session to start from the latest trunk. After that, the hook handles all pulls and pushes.
+
 ## Don't
 
 - Make manual git commits — the hook handles it
-- Run `git pull` or `git push` yourself — the hook handles it
+- Run `git pull` or `git push` after your initial pull — the hook handles it
