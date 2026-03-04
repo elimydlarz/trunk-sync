@@ -10,20 +10,28 @@ set -euo pipefail
 INPUT=$(cat)
 FILE_PATH=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty')
 
-[[ -z "$FILE_PATH" ]] && exit 0
-
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 GIT_DIR=$(git rev-parse --git-dir)
 
-# Only sync files inside this repo
-case "$FILE_PATH" in
-  "$REPO_ROOT"/*) ;;
-  *) exit 0 ;;
-esac
+# No file_path (e.g. Bash tool) — check for deleted tracked files, otherwise no-op
+if [[ -z "$FILE_PATH" ]]; then
+  DELETED=$(git -C "$REPO_ROOT" ls-files --deleted) || exit 0
+  [[ -z "$DELETED" ]] && exit 0
+  # Stage all deletions
+  printf '%s\n' "$DELETED" | xargs -d '\n' git -C "$REPO_ROOT" rm --cached --quiet -- 2>/dev/null || true
+fi
 
-# Skip gitignored files
-if git check-ignore -q -- "$FILE_PATH"; then
-  exit 0
+if [[ -n "$FILE_PATH" ]]; then
+  # Only sync files inside this repo
+  case "$FILE_PATH" in
+    "$REPO_ROOT"/*) ;;
+    *) exit 0 ;;
+  esac
+
+  # Skip gitignored files
+  if git check-ignore -q -- "$FILE_PATH"; then
+    exit 0
+  fi
 fi
 
 # Detect the default branch on origin
