@@ -46,8 +46,10 @@ TRANSCRIPT_PATH=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty')
 ACTION=$(printf '%s' "${TOOL_NAME:-update}" | tr '[:upper:]' '[:lower:]')
 REL_PATH="${FILE_PATH#"$REPO_ROOT"/}"
 
-# Stage the edited file
-git add -- "$FILE_PATH"
+# Stage the edited file (skip for deletion-only runs — already staged above)
+if [[ -n "$FILE_PATH" ]]; then
+  git add -- "$FILE_PATH"
+fi
 
 # If we're in a merge state (conflict resolution from a previous hook run),
 # complete the merge with the agent's resolved file.
