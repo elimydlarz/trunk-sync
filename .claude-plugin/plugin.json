@@ -7,5 +7,5 @@
   },
   "repository": "https://github.com/elimydlarz/trunk-sync",
   "license": "MIT",
-  "keywords": ["hooks", "git", "multi-agent", "sync", "trunk-based-development"],
+  "keywords": ["hooks", "git", "multi-agent", "sync", "trunk-based-development"]
 }
