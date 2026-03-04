@@ -440,6 +440,101 @@ assert_contains "$REMOTE_FILES" "user-file.txt" "user's local commit reached ori
 PROJECT_FILES=$(ls "$PROJECT")
 assert_contains "$PROJECT_FILES" "agent-file.txt" "local main has agent's file after sync"
 
+# --- File deletion sync ---
+
+# 22. Single file deletion — Bash with no file_path stages and commits the deletion
+setup_repos
+echo "to be deleted" > "$WT_A/doomed.txt"
+cd "$WT_A"
+run_hook "$(make_input "$WT_A/doomed.txt" "" "Write" "")"
+assert_exit 0 "create file for deletion test"
+
+# Delete the file (simulating agent running rm via Bash)
+rm "$WT_A/doomed.txt"
+BEFORE=$(commit_count "$WT_A")
+run_hook "$(make_input "" "del-sess1" "Bash" "")"
+assert_exit 0 "deletion sync exits 0"
+AFTER=$(commit_count "$WT_A")
+TEST_NUM=$((TEST_NUM + 1))
+if [[ "$AFTER" -gt "$BEFORE" ]]; then
+  echo "ok $TEST_NUM - deletion created a commit"
+  PASS=$((PASS + 1))
+else
+  echo "not ok $TEST_NUM - deletion created a commit"
+  FAIL=$((FAIL + 1))
+fi
+SUBJECT=$(last_subject "$WT_A")
+assert_contains "$SUBJECT" "delete" "deletion commit subject contains delete"
+assert_contains "$SUBJECT" "doomed.txt" "deletion commit subject contains filename"
+
+# File should be gone from remote too
+REMOTE_FILES=$(git -C "$REMOTE" ls-tree --name-only -r main)
+assert_not_contains "$REMOTE_FILES" "doomed.txt" "deleted file removed from remote"
+
+# 23. Multiple file deletion — commit message summarizes count
+setup_repos
+echo "a" > "$WT_A/del1.txt"
+echo "b" > "$WT_A/del2.txt"
+echo "c" > "$WT_A/del3.txt"
+cd "$WT_A"
+git -C "$WT_A" add del1.txt del2.txt del3.txt
+git -C "$WT_A" commit -m "add files to delete" >/dev/null 2>&1
+git -C "$WT_A" push origin HEAD:main >/dev/null 2>&1
+
+rm "$WT_A/del1.txt" "$WT_A/del2.txt" "$WT_A/del3.txt"
+run_hook "$(make_input "" "" "Bash" "")"
+assert_exit 0 "multi-deletion sync exits 0"
+SUBJECT=$(last_subject "$WT_A")
+assert_contains "$SUBJECT" "delete" "multi-deletion subject contains delete"
+assert_contains "$SUBJECT" "+2 more" "multi-deletion subject shows count of additional files"
+
+# 24. No deletions — Bash with no file_path and no deleted files exits 0, no commit
+setup_repos
+cd "$WT_A"
+BEFORE=$(commit_count "$WT_A")
+run_hook "$(make_input "" "" "Bash" "")"
+assert_exit 0 "no deletions exits 0"
+AFTER=$(commit_count "$WT_A")
+assert_equals "$BEFORE" "$AFTER" "no deletions creates no commit"
+
+# 25. Deletion syncs to other agent — agent B sees file removed after sync
+setup_repos
+echo "shared file" > "$WT_A/shared.txt"
+cd "$WT_A"
+run_hook "$(make_input "$WT_A/shared.txt" "" "Write" "")"
+
+# Agent B pulls to get the file
+cd "$WT_B"
+echo "trigger" > "$WT_B/trigger.txt"
+run_hook "$(make_input "$WT_B/trigger.txt" "" "Write" "")"
+TEST_NUM=$((TEST_NUM + 1))
+if [[ -f "$WT_B/shared.txt" ]]; then
+  echo "ok $TEST_NUM - agent B has shared file before deletion"
+  PASS=$((PASS + 1))
+else
+  echo "not ok $TEST_NUM - agent B has shared file before deletion"
+  FAIL=$((FAIL + 1))
+fi
+
+# Agent A deletes it
+rm "$WT_A/shared.txt"
+cd "$WT_A"
+run_hook "$(make_input "" "" "Bash" "")"
+assert_exit 0 "deletion by A exits 0"
+
+# Agent B edits something — pull should bring in the deletion
+echo "more work" > "$WT_B/trigger.txt"
+cd "$WT_B"
+run_hook "$(make_input "$WT_B/trigger.txt" "" "Edit" "")"
+TEST_NUM=$((TEST_NUM + 1))
+if [[ ! -f "$WT_B/shared.txt" ]]; then
+  echo "ok $TEST_NUM - agent B no longer has deleted file after sync"
+  PASS=$((PASS + 1))
+else
+  echo "not ok $TEST_NUM - agent B no longer has deleted file after sync"
+  FAIL=$((FAIL + 1))
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""
