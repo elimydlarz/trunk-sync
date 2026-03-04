@@ -44,7 +44,17 @@ TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // empty')
 TRANSCRIPT_PATH=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty')
 
 ACTION=$(printf '%s' "${TOOL_NAME:-update}" | tr '[:upper:]' '[:lower:]')
-REL_PATH="${FILE_PATH#"$REPO_ROOT"/}"
+if [[ -n "$FILE_PATH" ]]; then
+  REL_PATH="${FILE_PATH#"$REPO_ROOT"/}"
+else
+  # Deletion path — summarize what was deleted
+  DELETED_COUNT=$(git diff --cached --name-only --diff-filter=D | wc -l | tr -d ' ')
+  REL_PATH="$(git diff --cached --name-only --diff-filter=D | head -1)"
+  if [[ "$DELETED_COUNT" -gt 1 ]]; then
+    REL_PATH="$REL_PATH (+$((DELETED_COUNT - 1)) more)"
+  fi
+  ACTION="delete"
+fi
 
 # Stage the edited file (skip for deletion-only runs — already staged above)
 if [[ -n "$FILE_PATH" ]]; then
