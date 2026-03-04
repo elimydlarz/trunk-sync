@@ -18,7 +18,9 @@ if [[ -z "$FILE_PATH" ]]; then
   DELETED=$(git -C "$REPO_ROOT" ls-files --deleted) || exit 0
   [[ -z "$DELETED" ]] && exit 0
   # Stage all deletions
-  printf '%s\n' "$DELETED" | xargs -d '\n' git -C "$REPO_ROOT" rm --cached --quiet -- 2>/dev/null || true
+  while IFS= read -r f; do
+    git -C "$REPO_ROOT" rm --cached --quiet -- "$f" 2>/dev/null || true
+  done <<< "$DELETED"
 fi
 
 if [[ -n "$FILE_PATH" ]]; then
