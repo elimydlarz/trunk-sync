@@ -90,10 +90,10 @@ describe("blame and getCommitBody", () => {
       cwd: dir,
     });
 
-    const sha = blame(file, 1);
+    const sha = blame(file, 1, dir);
     assert.match(sha, /^[0-9a-f]{40}$/);
 
-    const body = getCommitBody(sha);
+    const body = getCommitBody(sha, dir);
     assert.equal(extractSessionId(body), "test-session-id");
   });
 
@@ -103,7 +103,7 @@ describe("blame and getCommitBody", () => {
     execSync("git add first.txt && git commit -m 'init'", { cwd: dir });
 
     writeFileSync(file, "committed\nuncommitted\n");
-    const sha = blame(file, 2);
+    const sha = blame(file, 2, dir);
     assert.match(sha, /^0+$/);
   });
 });
