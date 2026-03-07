@@ -26,24 +26,25 @@ export function parseFileRef(ref: string): { file: string; line: number } {
   return { file, line };
 }
 
-export function blame(file: string, line: number): string {
+export function blame(file: string, line: number, cwd?: string): string {
   const output = execSync(`git blame "${file}" -L ${line},${line} --porcelain`, {
     encoding: "utf-8",
+    cwd,
   });
   const sha = output.split("\n")[0].split(" ")[0];
   return sha;
 }
 
-export function getCommitBody(sha: string): string {
-  return execSync(`git log -1 --format=%b "${sha}"`, { encoding: "utf-8" }).trim();
+export function getCommitBody(sha: string, cwd?: string): string {
+  return execSync(`git log -1 --format=%b "${sha}"`, { encoding: "utf-8", cwd }).trim();
 }
 
-export function getCommitSubject(sha: string): string {
-  return execSync(`git log -1 --format=%s "${sha}"`, { encoding: "utf-8" }).trim();
+export function getCommitSubject(sha: string, cwd?: string): string {
+  return execSync(`git log -1 --format=%s "${sha}"`, { encoding: "utf-8", cwd }).trim();
 }
 
-export function getCommitDate(sha: string): string {
-  return execSync(`git log -1 --format=%ci "${sha}"`, { encoding: "utf-8" }).trim();
+export function getCommitDate(sha: string, cwd?: string): string {
+  return execSync(`git log -1 --format=%ci "${sha}"`, { encoding: "utf-8", cwd }).trim();
 }
 
 export function extractSessionId(body: string): string | null {
