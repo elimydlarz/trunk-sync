@@ -1,4 +1,5 @@
 import { execSync, spawnSync } from "node:child_process";
+import { join, relative, resolve } from "node:path";
 import {
   parseFileRef,
   blame,
@@ -8,6 +9,7 @@ import {
   extractSessionId,
   commandExists,
   shortSha,
+  getGitRoot,
 } from "../lib/git.js";
 
 const USAGE = `Usage: trunk-sync seance <file:line> [--inspect]
