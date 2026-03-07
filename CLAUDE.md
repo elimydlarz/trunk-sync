@@ -2,6 +2,55 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Mental Model
+
+trunk-sync has two independent layers that share one git repo:
+
+**Hook layer** — a Claude Code plugin (shell script) that fires after every Edit/Write tool use. It stages, commits, pulls from `origin/main`, and pushes — keeping multiple agents in continuous integration. Merge conflicts are surfaced as hook feedback (exit 2); the agent resolves by editing the file, and the hook completes the merge on the next fire.
+
+**CLI layer** — a TypeScript CLI (`trunk-sync`) with two commands:
+- `install` — precondition checks (git repo, remote, jq, claude) then delegates to `claude plugin install`
+- `seance` — traces a line of code via `git blame` → commit body → `Session:` field → forks that Claude session
+
+The hook writes `Session: <uuid>` into every commit body. Seance reads it back. This is the only coupling between the two layers.
+
+Key domain concepts: worktree (each agent gets one via `claude -w`), trunk (always `origin/main`), session ID (links commits to Claude conversations).
+
+## Repo Map
+
+```
+.claude-plugin/plugin.json   — plugin manifest (name, version)
+hooks/hooks.json              — hook registration (Edit|Write → scripts/trunk-sync.sh)
+scripts/trunk-sync.sh         — the hook script (reads JSON stdin, stages/commits/pulls/pushes)
+rules/trunk-sync.md           — agent-facing rules (don't manual-commit, etc.)
+
+src/cli.ts                    — CLI entry point, argv dispatch
+src/commands/install.ts       — trunk-sync install
+src/commands/seance.ts        — trunk-sync seance (default/--inspect/--list modes)
+src/lib/git.ts                — shared git utilities (blame, parseFileRef, extractSessionId, etc.)
+src/lib/git.test.ts           — unit tests (node:test)
+src/commands/seance.test.ts   — integration tests (node:test)
+
+test/trunk-sync.test.sh       — hook test suite (TAP, temp repos + bare remote)
+test/local-setup.sh           — manual test setup
+test/local-cleanup.sh         — manual test teardown
+```
+
+## Requirements
+
+- **auto-commit**: every Edit/Write fires the hook, which stages and commits the changed file
+- **auto-sync**: after commit, pull from origin/main (--no-rebase) then push HEAD:main
+- **conflict-feedback**: merge conflicts exit 2 with self-contained instructions for the agent
+- **conflict-resolve**: if MERGE_HEAD exists, the hook completes the merge (agent already edited)
+- **push-retry**: one automatic pull+push retry on push failure
+- **deletion-sync**: deleted tracked files are staged and committed when the hook fires with no file_path
+- **session-trace**: commit body includes `Session: <uuid>` for seance lookback
+- **transcript-enrich**: commit subject extracted from session transcript's first user message
+- **install-preconditions**: CLI checks git repo, remote, jq, claude before installing
+- **seance-inspect**: `--inspect` prints commit SHA, subject, session ID without launching claude
+- **seance-list**: `--list` deduplicates sessions from `git log --grep` and prints a table
+- **seance-fork**: default mode spawns `claude --resume <id> --fork-session`
+
 ## Development
 
 ### Tests
@@ -14,7 +63,7 @@ bash test/trunk-sync.test.sh
 pnpm run build && pnpm test
 ```
 
-Hook tests create isolated temp repos with worktrees and a bare remote to simulate multi-agent scenarios. Safe to run anywhere — no network access needed.
+Hook tests create isolated temp repos with worktrees and a bare remote. Safe to run anywhere — no network access needed.
 
 ### Building the CLI
 
@@ -50,35 +99,9 @@ cat test/battlefield.txt         # should reflect the resolved content
 bash test/local-cleanup.sh
 ```
 
-`local-cleanup.sh` restores test files to their initial state and removes worktrees. The hook will commit and push the restored state on the next edit.
+### Key conventions
 
-### Architecture
-
-This repo is a Claude Code plugin that auto-commits and pushes every file write, enabling multiple agents to work on the same branch simultaneously. Each agent runs in its own git worktree (via `claude -w`), isolated from other agents, but continuously integrating to `origin/main`.
-
-**Plugin layer** (the hook — existing):
-- `.claude-plugin/plugin.json` — plugin manifest (name, version, hooks reference)
-- `hooks/hooks.json` — hook registration (fires on Edit|Write, references the script via `${CLAUDE_PLUGIN_ROOT}`)
-- `scripts/trunk-sync.sh` — the hook script, reads JSON from stdin (tool_input, session_id, transcript_path), stages/commits the changed file, pulls from origin/main, pushes HEAD to origin/main
-- `rules/trunk-sync.md` — tells agents how to work with the hook
-- `test/trunk-sync.test.sh` — test suite simulating worktree-based multi-agent git scenarios
-
-**CLI layer** (TypeScript, wraps plugin install + seance):
-- `src/cli.ts` — entry point, argv dispatch
-- `src/commands/install.ts` — `trunk-sync install` with precondition checks
-- `src/commands/seance.ts` — `trunk-sync seance` — blame → session ID → fork session
-- `src/lib/git.ts` — shared git utilities (blame, parseFileRef, extractSessionId, etc.)
-- `src/lib/git.test.ts`, `src/commands/seance.test.ts` — tests (node:test)
-
-### Key hook behaviors
-
-- Exit 0: success or no-op (empty path, outside repo, gitignored, no changes)
-- Exit 2: conflict or push failure — stderr message becomes agent feedback via hook protocol
-- Commit messages are enriched from the session transcript's first user message (parsed from JSONL)
-- Merge conflicts: if `MERGE_HEAD` exists, the hook assumes the agent resolved conflict markers and completes the merge commit
-- Push retry: one automatic pull+push retry if the first push fails (another agent pushed between pull and push)
-- Works from any branch: `git pull origin main --no-rebase` + `git push origin HEAD:main` — compatible with worktree branches and main alike
-
-### Prerequisites
-
-The hook requires `jq` at runtime.
+- Hook requires `jq` at runtime
+- CLI has zero runtime dependencies — only devDependencies (typescript, tsx, @types/node)
+- All TypeScript imports use `.js` extensions (Node16 ESM requirement)
+- Hook exit codes: 0 = success/no-op, 2 = conflict/failure with agent feedback on stderr
