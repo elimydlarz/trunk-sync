@@ -56,12 +56,19 @@ bash test/local-cleanup.sh
 
 This repo is a Claude Code plugin that auto-commits and pushes every file write, enabling multiple agents to work on the same branch simultaneously. Each agent runs in its own git worktree (via `claude -w`), isolated from other agents, but continuously integrating to `origin/main`.
 
+**Plugin layer** (the hook — existing):
 - `.claude-plugin/plugin.json` — plugin manifest (name, version, hooks reference)
 - `hooks/hooks.json` — hook registration (fires on Edit|Write, references the script via `${CLAUDE_PLUGIN_ROOT}`)
 - `scripts/trunk-sync.sh` — the hook script, reads JSON from stdin (tool_input, session_id, transcript_path), stages/commits the changed file, pulls from origin/main, pushes HEAD to origin/main
 - `rules/trunk-sync.md` — tells agents how to work with the hook
 - `test/trunk-sync.test.sh` — test suite simulating worktree-based multi-agent git scenarios
-- `CLAUDE.md` — development guide
+
+**CLI layer** (TypeScript, wraps plugin install + seance):
+- `src/cli.ts` — entry point, argv dispatch
+- `src/commands/install.ts` — `trunk-sync install` with precondition checks
+- `src/commands/seance.ts` — `trunk-sync seance` — blame → session ID → fork session
+- `src/lib/git.ts` — shared git utilities (blame, parseFileRef, extractSessionId, etc.)
+- `src/lib/git.test.ts`, `src/commands/seance.test.ts` — tests (node:test)
 
 ### Key hook behaviors
 
