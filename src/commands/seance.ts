@@ -101,10 +101,38 @@ function inspectOrLaunch(fileRef: string, inspect: boolean): void {
     process.exit(1);
   }
 
+  const root = getGitRoot();
+  if (!root) {
+    console.error("Not in a git repository.");
+    process.exit(1);
+  }
+
+  const worktreePath = join(root, ".claude", "worktrees", `seance-${shortSha(sha)}`);
+
+  try {
+    execSync(`git worktree add --detach "${worktreePath}" "${sha}"`, { stdio: "pipe" });
+  } catch {
+    console.error(`Failed to create worktree at ${sha}.`);
+    process.exit(1);
+  }
+
+  const relFile = relative(root, resolve(file));
+  const prompt = `You wrote ${relFile}:${line} in commit ${shortSha(sha)}. Explain yourself!`;
+
   console.log(`Forking session ${sessionId} (from commit ${shortSha(sha)}: ${subject})`);
-  const result = spawnSync("claude", ["--resume", sessionId, "--fork-session"], {
+  console.log(`Worktree at ${worktreePath}`);
+
+  const result = spawnSync("claude", ["--resume", sessionId, "--fork-session", prompt], {
     stdio: "inherit",
+    cwd: worktreePath,
   });
+
+  try {
+    execSync(`git worktree remove "${worktreePath}"`, { stdio: "pipe" });
+  } catch {
+    console.error(`Note: worktree left at ${worktreePath} — remove with: git worktree remove "${worktreePath}"`);
+  }
+
   process.exit(result.status ?? 1);
 }
 
