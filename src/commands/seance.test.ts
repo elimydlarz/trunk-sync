@@ -94,4 +94,41 @@ describe("seance integration", () => {
     const output = runSeance(dir, "--list");
     assert.match(output, /No trunk-sync sessions/);
   });
+
+  it("default mode creates worktree at blamed commit and passes prompt", () => {
+    // Create a fake claude binary that records its args and cwd
+    const binDir = mkdtempSync(join(tmpdir(), "seance-bin-"));
+    const logFile = join(binDir, "claude.log");
+    writeFileSync(
+      join(binDir, "claude"),
+      `#!/bin/sh\necho "cwd=$(pwd)" > "${logFile}"\necho "args=$*" >> "${logFile}"\nexit 0\n`
+    );
+    chmodSync(join(binDir, "claude"), 0o755);
+
+    const file = join(dir, "code.ts");
+    writeFileSync(file, "const x = 1;\n");
+    gitIn(dir, "add code.ts");
+    gitIn(dir, "commit -m 'auto(abcd1234): add code' -m 'File: code.ts\nSession: aaaa-bbbb-cccc-dddd'");
+    const commitSha = gitIn(dir, "rev-parse HEAD");
+    const short = commitSha.slice(0, 8);
+
+    const output = runSeance(dir, `${file}:1`, binDir);
+
+    // Verify output mentions worktree and forking
+    assert.match(output, /Forking session aaaa-bbbb-cccc-dddd/);
+    assert.match(output, /Worktree at/);
+
+    // Verify claude was called with the right args and cwd
+    const log = readFileSync(logFile, "utf-8");
+    assert.match(log, /--resume aaaa-bbbb-cccc-dddd --fork-session/);
+    assert.match(log, /Explain yourself!/);
+    assert.match(log, new RegExp(`cwd=.*seance-${short}`));
+
+    // Verify worktree was cleaned up
+    const worktrees = gitIn(dir, "worktree list");
+    assert.ok(!worktrees.includes(`seance-${short}`), "worktree should be removed after claude exits");
+
+    // Cleanup fake bin dir
+    rmSync(binDir, { recursive: true, force: true });
+  });
 });
