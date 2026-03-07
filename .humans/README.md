@@ -8,6 +8,8 @@ The longer you wait to integrate, the harder conflicts get. trunk-sync makes the
 
 trunk-sync is a Claude Code plugin that auto-commits and pushes every file write, enabling multiple agents to work on the same branch simultaneously. Each agent runs in its own git worktree (`claude -w`), isolated from other agents, but continuously integrating to `origin/main`.
 
+### Plugin layer (the hook)
+
 ```
 .claude-plugin/plugin.json  — plugin manifest (name, version, hooks reference)
 hooks/hooks.json             — hook registration (fires on Edit|Write, references the
@@ -19,6 +21,21 @@ rules/trunk-sync.md          — tells agents how to work with the hook
 test/trunk-sync.test.sh      — test suite simulating worktree-based multi-agent git scenarios
 CLAUDE.md                    — development guide for agents working on this repo
 ```
+
+### CLI layer (TypeScript)
+
+A thin CLI (`trunk-sync`) that wraps plugin installation with precondition checks and provides `seance` — a command that traces a line of code back to the Claude session that wrote it.
+
+```
+src/cli.ts                   — entry point, argv dispatch
+src/commands/install.ts      — trunk-sync install (preconditions + claude plugin install)
+src/commands/seance.ts       — trunk-sync seance (blame → session ID → fork session)
+src/lib/git.ts               — shared git utilities
+src/lib/git.test.ts          — unit tests (node:test)
+src/commands/seance.test.ts  — integration tests (node:test)
+```
+
+Both layers are independent. The plugin works without the CLI, and the CLI delegates to `claude plugin install` for actual installation.
 
 ## How it works
 
