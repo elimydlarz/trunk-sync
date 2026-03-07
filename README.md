@@ -5,10 +5,12 @@ Auto-commit and push every file edit to `origin/main`. Multiple agents work simu
 ## Install
 
 ```bash
-# Add the marketplace (one-time)
-claude plugin marketplace add elimydlarz/trunk-sync
+# Via CLI (recommended — checks prerequisites first)
+npm install -g trunk-sync
+trunk-sync install
 
-# Install (use --scope project to share with your team via .claude/settings.json)
+# Or directly via Claude Code plugin system
+claude plugin marketplace add elimydlarz/trunk-sync
 claude plugin install trunk-sync@trunk-sync --scope project
 ```
 
@@ -40,6 +42,21 @@ The hook works from any branch — `main`, a worktree branch, or anything else. 
 When two agents edit the same file, `git pull` produces a merge conflict. The hook tells you the file has conflict markers (exit code 2). Read the file, edit out the markers normally, and the hook completes the merge automatically.
 
 You don't need to run any git commands — just edit the file.
+
+## Seance — find which agent wrote a line
+
+trunk-sync records the Claude session ID in every commit. `seance` traces a line of code back to the session that wrote it and forks that session so you can continue where it left off.
+
+```bash
+# See which session wrote line 42 of src/main.ts
+trunk-sync seance src/main.ts:42 --inspect
+
+# Fork that session to continue the conversation
+trunk-sync seance src/main.ts:42
+
+# List all trunk-sync sessions in the repo
+trunk-sync seance --list
+```
 
 ## What gets installed
 
