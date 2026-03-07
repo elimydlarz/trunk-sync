@@ -7,10 +7,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Tests
 
 ```bash
+# Hook tests (shell, TAP output)
 bash test/trunk-sync.test.sh
+
+# CLI tests (TypeScript, node:test)
+pnpm run build && pnpm test
 ```
 
-41 tests using TAP output. Tests create isolated temp repos with worktrees and a bare remote to simulate multi-agent scenarios. Safe to run anywhere — no network access needed.
+Hook tests create isolated temp repos with worktrees and a bare remote to simulate multi-agent scenarios. Safe to run anywhere — no network access needed.
+
+### Building the CLI
+
+```bash
+pnpm run build        # compile TypeScript → dist/
+pnpm run dev -- <cmd> # run from source via tsx
+```
 
 ### Manual testing
 
