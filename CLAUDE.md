@@ -49,7 +49,7 @@ test/local-cleanup.sh         — manual test teardown
 - **install-preconditions**: CLI checks git repo, remote, jq, claude before installing
 - **seance-inspect**: `--inspect` prints commit SHA, subject, session ID without launching claude
 - **seance-list**: `--list` deduplicates sessions from `git log --grep` and prints a table
-- **seance-fork**: default mode spawns `claude --resume <id> --fork-session`
+- **seance-fork**: default mode creates a worktree at the blamed commit's SHA, spawns `claude --resume <id> --fork-session "<prompt>"` from that worktree, and cleans up the worktree on exit
 
 ## Development
 
