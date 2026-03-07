@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, chmodSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
@@ -9,13 +9,14 @@ function gitIn(dir: string, cmd: string): string {
   return execSync(`git ${cmd}`, { cwd: dir, encoding: "utf-8" }).trim();
 }
 
-function runSeance(dir: string, args: string): string {
+function runSeance(dir: string, args: string, extraPath?: string): string {
   const cliPath = join(process.cwd(), "dist", "cli.js");
+  const pathEnv = extraPath ? `${extraPath}:${process.env.PATH}` : process.env.PATH;
   try {
     return execSync(`node "${cliPath}" seance ${args}`, {
       cwd: dir,
       encoding: "utf-8",
-      env: { ...process.env, PATH: process.env.PATH },
+      env: { ...process.env, PATH: pathEnv },
     }).trim();
   } catch (e: unknown) {
     const err = e as { stderr?: string; stdout?: string };
