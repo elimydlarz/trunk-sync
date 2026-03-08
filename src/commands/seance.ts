@@ -1,6 +1,6 @@
 import { execSync, spawnSync } from "node:child_process";
 import { join, dirname, relative, resolve } from "node:path";
-import { readFileSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import {
   parseFileRef,
