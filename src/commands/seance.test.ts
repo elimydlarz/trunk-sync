@@ -145,7 +145,7 @@ echo "args=$*" >> "${logFile}"
 RESUME_ID=$(echo "$*" | sed 's/.*--resume \\([^ ]*\\).*/\\1/')
 # Find the rewound file by looking in the project dir for the worktree
 WORKTREE_CWD=$(pwd)
-SLUG=$(echo "$WORKTREE_CWD" | sed 's|/|-|g')
+SLUG=$(echo "$WORKTREE_CWD" | sed 's|[/.]|-|g')
 REWOUND_FILE="$HOME/.claude/projects/$SLUG/$RESUME_ID.jsonl"
 if [ -f "$REWOUND_FILE" ]; then
   cp "$REWOUND_FILE" "${captureFile}"
