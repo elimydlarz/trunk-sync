@@ -1,10 +1,10 @@
 # trunk-sync — Developer Guide
 
-Two tools for multi-agent coding with Claude Code:
+Run multiple Claude Code agents on the same repo without breaking each other's work, and understand any line of generated code on demand.
 
-**Trunk-Sync** — continuous integration. Every file edit is auto-committed and pushed to `origin/main` immediately — not per-task, not per-session, every single edit. The longer you wait to integrate, the harder conflicts get. trunk-sync makes the wait zero.
+**Trunk-Sync** — maximum continuous integration for coding agents. Agents work in parallel — on local worktrees, across remote machines, any mix — with agentic conflict resolution. No more wasted time resolving conflicts by hand, remembering to commit, or discovering that an agent never pushed its work.
 
-**Seance** — forensic session replay. Point at any line of code and resume the Claude session that wrote it, rewound to that exact moment. The resumed agent has the same context it had when it wrote the code — ask it *why*.
+**Seance** — talk to dead coding agents. Point at any line of code and rewind the codebase and session back to the exact moment it was written. Ask the agent what it was thinking. Understand generated code on demand — stop worrying about keeping up with every change your agents make.
 
 ## Architecture
 
