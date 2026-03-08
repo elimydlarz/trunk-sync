@@ -207,7 +207,8 @@ exit 0
     assert.equal(capturedLines.length, 4, "should have 4 lines (timestamps <= 10:00:02.500)");
 
     // Verify sessionId and cwd were rewritten in the rewound transcript
-    const worktreePath = join(dir, ".claude", "worktrees", `seance-${short}`);
+    // Use realpathSync because git rev-parse --show-toplevel resolves symlinks (e.g. /var → /private/var on macOS)
+    const worktreePath = join(realpathSync(dir), ".claude", "worktrees", `seance-${short}`);
     for (const line of capturedLines) {
       const obj = JSON.parse(line);
       if (obj.sessionId) {
