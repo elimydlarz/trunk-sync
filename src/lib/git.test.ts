@@ -110,6 +110,43 @@ describe("blame and getCommitBody", () => {
   });
 });
 
+describe("extractTranscriptPath", () => {
+  it("extracts transcript path from body", () => {
+    const body = "File: src/main.ts\nSession: abc-123\nTranscript: /path/to/session.jsonl";
+    assert.equal(extractTranscriptPath(body), "/path/to/session.jsonl");
+  });
+
+  it("returns null when no Transcript line", () => {
+    assert.equal(extractTranscriptPath("Session: abc-123"), null);
+  });
+});
+
+describe("getCommitTimestamp", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "git-ts-test-"));
+    execSync("git init", { cwd: dir });
+    execSync('git config user.email "test@test.com"', { cwd: dir });
+    execSync('git config user.name "Test"', { cwd: dir });
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("returns ISO timestamp for a commit", () => {
+    const file = join(dir, "file.txt");
+    writeFileSync(file, "hello\n");
+    execSync("git add file.txt && git commit -m 'init'", { cwd: dir });
+    const sha = execSync("git rev-parse HEAD", { cwd: dir, encoding: "utf-8" }).trim();
+
+    const ts = getCommitTimestamp(sha, dir);
+    // Should be a valid ISO date
+    assert.ok(!isNaN(new Date(ts).getTime()), `Expected valid date, got: ${ts}`);
+  });
+});
+
 describe("commandExists", () => {
   it("returns true for git", () => {
     assert.equal(commandExists("git"), true);
