@@ -9,6 +9,8 @@ Installs the trunk-sync Claude Code plugin.
 
 Options:
   --scope <scope>  Installation scope: "project" (default) or "user"
+                   project — active in this repo only (.claude/plugins.json)
+                   user    — active in all repos (~/.claude/plugins.json)
   -h, --help       Show this help message`);
     return;
   }
@@ -40,10 +42,24 @@ Options:
   }
 
   if (!commandExists("claude")) {
-    console.error("Claude Code CLI not found. Install: https://docs.anthropic.com/en/docs/claude-code");
+    console.error(
+      "Claude Code CLI not found. Install: https://docs.anthropic.com/en/docs/claude-code"
+    );
     process.exit(1);
   }
 
+  // Add GitHub repo as a marketplace source
+  console.log("Adding trunk-sync marketplace...");
+  try {
+    execSync(
+      `claude plugin marketplace add elimydlarz/trunk-sync --scope ${scope}`,
+      { stdio: "inherit" }
+    );
+  } catch {
+    // May already be added — continue to install
+  }
+
+  // Install the plugin from the marketplace
   console.log(`Installing trunk-sync plugin (scope: ${scope})...`);
   try {
     execSync(`claude plugin install trunk-sync@trunk-sync --scope ${scope}`, {
@@ -54,7 +70,7 @@ Options:
     process.exit(1);
   }
 
-  console.log(`\ntrunk-sync installed successfully!
+  console.log(`\ntrunk-sync installed successfully (scope: ${scope}).
 
 Next steps:
   1. Launch agents in worktrees: claude -w
