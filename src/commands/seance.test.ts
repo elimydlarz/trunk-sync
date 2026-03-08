@@ -122,7 +122,7 @@ describe("seance integration", () => {
     // Verify claude was called with --fork-session (fallback)
     const log = readFileSync(logFile, "utf-8");
     assert.match(log, /--resume aaaa-bbbb-cccc-dddd --fork-session/);
-    assert.match(log, /Explain yourself!/);
+    assert.match(log, /STOP/);
 
     // Verify worktree was cleaned up
     const worktrees = gitIn(dir, "worktree list");
