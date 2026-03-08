@@ -224,7 +224,7 @@ exit 0
     assert.ok(!worktrees.includes(`seance-${short}`), "worktree should be removed after claude exits");
 
     // Verify rewound transcript was cleaned up (it's in the project dir, not transcriptDir)
-    const slug = worktreePath.replace(/\//g, "-");
+    const slug = worktreePath.replace(/[/.]/g, "-");
     const projectDir = join(process.env.HOME || "", ".claude", "projects", slug);
     const rewoundFile = join(projectDir, `${newSessionId}.jsonl`);
     assert.ok(!existsSync(rewoundFile), "rewound transcript should be cleaned up after claude exits");
