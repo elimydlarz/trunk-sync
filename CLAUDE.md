@@ -50,7 +50,7 @@ test/local-cleanup.sh         — manual test teardown
 - **install-preconditions**: CLI checks git repo, remote, jq, claude before installing
 - **seance-inspect**: `--inspect` prints commit SHA, subject, session ID without launching claude
 - **seance-list**: `--list` deduplicates sessions from `git log --grep` and prints a table
-- **seance-rewind**: default mode truncates the session transcript to the blamed commit's timestamp, writes it as a new session file in the worktree's project directory (`~/.claude/projects/<worktree-slug>/`), and resumes from that point — so the forked Claude has the same context it had when it wrote the code. The file must be in the worktree's project directory (not the original project's) because Claude resolves `--resume` relative to the cwd's project slug.
+- **seance-rewind**: default mode truncates the session transcript to the blamed commit's timestamp, writes it as a new session file in the worktree's project directory (`~/.claude/projects/<worktree-slug>/`), rewrites `sessionId` and `cwd` fields inside the JSONL entries to match the new session ID and worktree path, and resumes from that point — so the forked Claude has the same context it had when it wrote the code. The file must be in the worktree's project directory (not the original project's) because Claude resolves `--resume` relative to the cwd's project slug, and the internal `sessionId` must match the filename.
 - **seance-rewind-fallback**: if no `Transcript:` field in commit body (older commits), falls back to `--resume <id> --fork-session` (forks from end of session)
 - **seance-rewind-cleanup**: the temporary rewound transcript file is deleted after Claude exits
 
