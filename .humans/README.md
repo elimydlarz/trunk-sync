@@ -1,14 +1,18 @@
 # trunk-sync — Developer Guide
 
-Maximum continuous integration for multi-agent coding. Every file edit is committed and pushed to `origin/main` immediately — not per-task, not per-session, every single edit.
+Two tools for multi-agent coding with Claude Code:
 
-The longer you wait to integrate, the harder conflicts get. trunk-sync makes the wait zero.
+**Trunk-Sync** — continuous integration. Every file edit is auto-committed and pushed to `origin/main` immediately — not per-task, not per-session, every single edit. The longer you wait to integrate, the harder conflicts get. trunk-sync makes the wait zero.
+
+**Seance** — forensic session replay. Point at any line of code and resume the Claude session that wrote it, rewound to that exact moment. The resumed agent has the same context it had when it wrote the code — ask it *why*.
 
 ## Architecture
 
-trunk-sync is a Claude Code plugin that auto-commits and pushes every file write, enabling multiple agents to work on the same branch simultaneously. Each agent runs in its own git worktree (`claude -w`), isolated from other agents, but continuously integrating to `origin/main`.
+trunk-sync is a Claude Code plugin with two independent layers that share one git repo:
 
 ### Plugin layer (the hook)
+
+Auto-commits and pushes every file write, enabling multiple agents to work on the same branch simultaneously. Each agent runs in its own git worktree (`claude -w`), isolated from other agents, but continuously integrating to `origin/main`.
 
 ```
 .claude-plugin/plugin.json  — plugin manifest (name, version, hooks reference)
@@ -24,20 +28,22 @@ CLAUDE.md                    — development guide for agents working on this re
 
 ### CLI layer (TypeScript)
 
-A thin CLI (`trunk-sync`) that wraps plugin installation with precondition checks and provides `seance` — a command that traces a line of code back to the Claude session that wrote it.
+A thin CLI (`trunk-sync`) with two commands:
+- `install` — precondition checks (git repo, remote, jq, claude), adds the GitHub repo as a marketplace source, then installs the plugin via `claude plugin install` (default project scope, `--scope user` for all repos)
+- `seance` — traces a line of code back to the Claude session that wrote it and resumes that conversation
 
 ```
 src/cli.ts                   — entry point, argv dispatch
 src/commands/install.ts      — trunk-sync install (preconditions + marketplace add + plugin install)
-src/commands/seance.ts       — trunk-sync seance (blame → session ID → fork session)
+src/commands/seance.ts       — trunk-sync seance (blame → session ID → rewind → resume)
 src/lib/git.ts               — shared git utilities
 src/lib/git.test.ts          — unit tests (node:test)
 src/commands/seance.test.ts  — integration tests (node:test)
 ```
 
-Both layers are independent. The plugin works without the CLI, and the CLI delegates to `claude plugin install` for actual installation.
+Both layers are independent. The plugin works without the CLI, and the CLI delegates to `claude plugin install` for actual installation. The only coupling: the hook writes `Session:` and `Transcript:` into every commit body, and seance reads them back.
 
-## How it works
+## Trunk-Sync — how it works
 
 After every `Edit` or `Write` tool use, the hook:
 
@@ -64,7 +70,7 @@ This works identically regardless of topology — two worktrees on one laptop, t
 
 If the first push fails (another agent pushed between pull and push), the hook does one automatic pull+push retry.
 
-## Commit messages
+### Commit messages
 
 The hook extracts the user's initial prompt from the session transcript (parsed from JSONL):
 
@@ -76,6 +82,40 @@ auto(abc12345): edit src/main.ts                     (fallback when no transcrip
 
 The hex prefix is derived from the session ID. Find all commits from one session: `git log --grep='877a28bc'`
 
+## Seance — how it works
+
+Every trunk-sync commit embeds `Session: <uuid>` and `Transcript: <path>` in the commit body. Seance uses these to trace a line of code back to the agent that wrote it:
+
+1. `git blame` finds the commit that last touched the target line
+2. The session ID and transcript path are extracted from the commit body
+3. The transcript is truncated to the commit's timestamp — rewinding to that exact moment
+4. A worktree is created at the blamed commit so the code matches what the agent saw
+5. The session ID and cwd inside the JSONL entries are rewritten to match the new worktree
+6. Claude resumes with `--resume`, picking up with the same context it had when it wrote the line
+
+The resumed agent is restricted to **read-only tools** (`--allowedTools`) and given a system prompt enforcing seance mode — it can explain and explore but not edit, write, or create files.
+
+### Modes
+
+```bash
+# Default — rewind and resume the session (read-only)
+trunk-sync seance src/main.ts:42
+
+# Inspect — print commit SHA, subject, and session ID without launching Claude
+trunk-sync seance src/main.ts:42 --inspect
+
+# List — deduplicate sessions from git history and print a table
+trunk-sync seance --list
+```
+
+### Fallback for older commits
+
+If the commit body has no `Transcript:` field (older commits before transcript recording), seance falls back to `--resume <id> --fork-session` which forks from the end of the session. Less precise, but still useful.
+
+### Cleanup
+
+The temporary rewound transcript file and the worktree are both cleaned up when Claude exits.
+
 ## Development
 
 ### Prerequisites
@@ -85,10 +125,14 @@ The hex prefix is derived from the session ID. Find all commits from one session
 ### Tests
 
 ```bash
+# Hook tests (shell, TAP output)
 bash test/trunk-sync.test.sh
+
+# CLI tests (TypeScript, node:test)
+pnpm run build && pnpm test
 ```
 
-41 tests using TAP output. Tests create isolated temp repos with worktrees and a bare remote to simulate multi-agent scenarios. Safe to run anywhere — no network access needed.
+Hook tests create isolated temp repos with worktrees and a bare remote to simulate multi-agent scenarios. Safe to run anywhere — no network access needed.
 
 ### Manual testing
 
