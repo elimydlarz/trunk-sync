@@ -183,7 +183,7 @@ function inspectOrLaunch(fileRef: string, inspect: boolean): void {
   }
 
   const relFile = relative(root, resolve(file));
-  const prompt = `*STOP*. This session already ended. It has been resumed and rewound — including the code — so you can answer questions about why it was written this way. Start by explaining ${relFile}:${line} (commit ${shortSha(sha)}) — what does it do, how does it work, and why is it written this way?`;
+  const prompt = `*STOP*. This session already ended. It has been resumed and rewound — including the code — so you can answer questions about why it was written this way. *DO NOT* change any code. Start by explaining ${relFile}:${line} (commit ${shortSha(sha)}) — what does it do, how does it work, and why is it written this way?`;
 
   // Try to rewind the session transcript to the commit point
   const transcriptPath = extractTranscriptPath(body);
