@@ -1,6 +1,6 @@
 import { execSync, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { join, dirname, relative, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from "node:fs";
 import {
   parseFileRef,
@@ -76,16 +76,23 @@ function listSessions(): void {
 }
 
 /**
- * Temporarily truncate a session transcript in-place so that --resume --fork-session
- * forks from the commit point rather than the end. The original is backed up and
- * restored after Claude exits.
- *
- * Returns a restore function (call after Claude exits), or null if rewind isn't possible.
+ * Derive the Claude project slug for a given directory path.
+ * Claude replaces "/" and "." with "-" in the absolute path.
+ */
+function projectSlug(dirPath: string): string {
+  return dirPath.replace(/[/.]/g, "-");
+}
+
+/**
+ * Create a truncated copy of a session transcript, containing only messages
+ * up to the given timestamp. The copy is written into the worktree's project
+ * directory so Claude can find it via --resume.
  */
 function rewindTranscript(
   transcriptPath: string,
-  commitTimestamp: string
-): { backup: string; restore: () => void } | null {
+  commitTimestamp: string,
+  worktreePath: string
+): { path: string; id: string } | null {
   const expandedPath = transcriptPath.replace(/^~/, process.env.HOME || "~");
   if (!existsSync(expandedPath)) return null;
 
@@ -108,18 +115,26 @@ function rewindTranscript(
 
   if (cutIndex < 0) return null;
 
-  // Back up the original, then overwrite with the truncated version
-  const backupPath = expandedPath + ".seance-backup";
-  copyFileSync(expandedPath, backupPath);
-  const truncated = lines.slice(0, cutIndex + 1).join("\n") + "\n";
-  writeFileSync(expandedPath, truncated);
+  const newId = randomUUID();
+  // Write into the project directory Claude will use for the worktree.
+  const home = process.env.HOME || "~";
+  const projectDir = join(home, ".claude", "projects", projectSlug(worktreePath));
+  mkdirSync(projectDir, { recursive: true });
+  const newPath = join(projectDir, `${newId}.jsonl`);
+  // Rewrite sessionId and cwd so Claude recognises this as a valid session.
+  const rewritten = lines.slice(0, cutIndex + 1).map((line) => {
+    try {
+      const obj = JSON.parse(line);
+      if (obj.sessionId) obj.sessionId = newId;
+      if (obj.cwd) obj.cwd = worktreePath;
+      return JSON.stringify(obj);
+    } catch {
+      return line;
+    }
+  });
+  writeFileSync(newPath, rewritten.join("\n") + "\n");
 
-  return {
-    backup: backupPath,
-    restore: () => {
-      try { renameSync(backupPath, expandedPath); } catch { /* best-effort */ }
-    },
-  };
+  return { path: newPath, id: newId };
 }
 
 function inspectOrLaunch(fileRef: string, inspect: boolean): void {
