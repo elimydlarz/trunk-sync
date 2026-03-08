@@ -75,6 +75,46 @@ function listSessions(): void {
   }
 }
 
+/**
+ * Create a truncated copy of a session transcript, containing only messages
+ * up to the given timestamp. Returns the path to the new transcript file,
+ * or null if the transcript can't be found or truncated.
+ */
+function rewindTranscript(
+  transcriptPath: string,
+  commitTimestamp: string
+): { path: string; id: string } | null {
+  const expandedPath = transcriptPath.replace(/^~/, process.env.HOME || "~");
+  if (!existsSync(expandedPath)) return null;
+
+  const cutoff = new Date(commitTimestamp).getTime();
+  const lines = readFileSync(expandedPath, "utf-8").split("\n").filter(Boolean);
+
+  // Find the last line whose timestamp is <= the commit timestamp.
+  // Include all lines up to and including that point.
+  let cutIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    try {
+      const obj = JSON.parse(lines[i]);
+      const ts = obj.timestamp;
+      if (ts && new Date(ts).getTime() <= cutoff) {
+        cutIndex = i;
+      }
+    } catch {
+      // Non-JSON lines (shouldn't happen) — include them if before cutoff
+    }
+  }
+
+  if (cutIndex < 0) return null;
+
+  const newId = randomUUID();
+  const newPath = join(dirname(expandedPath), `${newId}.jsonl`);
+  const truncated = lines.slice(0, cutIndex + 1).join("\n") + "\n";
+  writeFileSync(newPath, truncated);
+
+  return { path: newPath, id: newId };
+}
+
 function inspectOrLaunch(fileRef: string, inspect: boolean): void {
   const { file, line } = parseFileRef(fileRef);
 
@@ -123,13 +163,35 @@ function inspectOrLaunch(fileRef: string, inspect: boolean): void {
   const relFile = relative(root, resolve(file));
   const prompt = `You wrote ${relFile}:${line} in commit ${shortSha(sha)}. Explain yourself!`;
 
+  // Try to rewind the session transcript to the commit point
+  const transcriptPath = extractTranscriptPath(body);
+  const commitTimestamp = getCommitTimestamp(sha);
+  const rewound = transcriptPath
+    ? rewindTranscript(transcriptPath, commitTimestamp)
+    : null;
+
+  const resumeId = rewound?.id ?? sessionId;
+  const needsFork = !rewound; // only fork if we couldn't rewind (falling back to full session)
+
+  if (rewound) {
+    console.log(`Rewound session to commit ${shortSha(sha)} (${commitTimestamp})`);
+  }
   console.log(`Forking session ${sessionId} (from commit ${shortSha(sha)}: ${subject})`);
   console.log(`Worktree at ${worktreePath}`);
 
-  const result = spawnSync("claude", ["--resume", sessionId, "--fork-session", prompt], {
+  const args = needsFork
+    ? ["--resume", resumeId, "--fork-session", prompt]
+    : ["--resume", resumeId, prompt];
+
+  const result = spawnSync("claude", args, {
     stdio: "inherit",
     cwd: worktreePath,
   });
+
+  // Clean up the rewound transcript file
+  if (rewound) {
+    try { unlinkSync(rewound.path); } catch { /* best-effort */ }
+  }
 
   try {
     execSync(`git worktree remove "${worktreePath}"`, { stdio: "pipe" });
