@@ -80,9 +80,18 @@ function listSessions(): void {
  * up to the given timestamp. Returns the path to the new transcript file,
  * or null if the transcript can't be found or truncated.
  */
+/**
+ * Derive the Claude project slug for a given directory path.
+ * Claude uses the absolute path with "/" replaced by "-".
+ */
+function projectSlug(dirPath: string): string {
+  return dirPath.replace(/\//g, "-");
+}
+
 function rewindTranscript(
   transcriptPath: string,
-  commitTimestamp: string
+  commitTimestamp: string,
+  worktreePath: string
 ): { path: string; id: string } | null {
   const expandedPath = transcriptPath.replace(/^~/, process.env.HOME || "~");
   if (!existsSync(expandedPath)) return null;
@@ -108,7 +117,12 @@ function rewindTranscript(
   if (cutIndex < 0) return null;
 
   const newId = randomUUID();
-  const newPath = join(dirname(expandedPath), `${newId}.jsonl`);
+  // Write the rewound transcript into the project directory Claude will use
+  // for the worktree, so --resume can find it by session ID.
+  const home = process.env.HOME || "~";
+  const projectDir = join(home, ".claude", "projects", projectSlug(worktreePath));
+  mkdirSync(projectDir, { recursive: true });
+  const newPath = join(projectDir, `${newId}.jsonl`);
   const truncated = lines.slice(0, cutIndex + 1).join("\n") + "\n";
   writeFileSync(newPath, truncated);
 
