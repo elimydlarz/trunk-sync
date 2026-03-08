@@ -10,9 +10,9 @@ trunk-sync has two independent layers that share one git repo:
 
 **CLI layer** — a TypeScript CLI (`trunk-sync`) with two commands:
 - `install` — precondition checks (git repo, remote, jq, claude) then delegates to `claude plugin install`
-- `seance` — traces a line of code via `git blame` → commit body → `Session:` field → creates a worktree at that commit → forks that Claude session with a contextual prompt
+- `seance` — traces a line of code via `git blame` → commit body → `Session:` + `Transcript:` fields → truncates the session transcript to that commit's timestamp → creates a worktree at that commit → resumes the rewound session so Claude has the same context it had when it wrote the code
 
-The hook writes `Session: <uuid>` into every commit body. Seance reads it back. This is the only coupling between the two layers.
+The hook writes `Session: <uuid>` and `Transcript: <path>` into every commit body. Seance reads both back. This is the only coupling between the two layers.
 
 Key domain concepts: worktree (each agent gets one via `claude -w`), trunk (always `origin/main`), session ID (links commits to Claude conversations).
 
