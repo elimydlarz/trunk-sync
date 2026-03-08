@@ -103,6 +103,26 @@ cat test/battlefield.txt         # should reflect the resolved content
 bash test/local-cleanup.sh
 ```
 
+### Publishing
+
+Two distribution channels — both must be updated together:
+
+```bash
+# 1. Bump version in both manifests
+#    - package.json (npm)
+#    - .claude-plugin/plugin.json (plugin)
+
+# 2. Build and publish to npm
+pnpm run build && npm publish
+
+# 3. Push to GitHub (plugin installs from repo root)
+git push origin main
+```
+
+The npm package includes the plugin files (`scripts/`, `hooks/`, `rules/`, `.claude-plugin/`) alongside the CLI (`dist/`). Test files are excluded from the tarball.
+
+`prepublishOnly` runs the build automatically, so `npm publish` alone is sufficient — but run `build` first if you want to verify the output.
+
 ### Key conventions
 
 - Hook requires `jq` at runtime
