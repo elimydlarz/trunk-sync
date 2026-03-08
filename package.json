@@ -1,6 +1,6 @@
 {
   "name": "trunk-sync",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "type": "module",
   "description": "Maximum continuous integration for multi-agent coding — every edit is committed and pushed to trunk immediately",
   "bin": {
