@@ -123,8 +123,19 @@ function rewindTranscript(
   const projectDir = join(home, ".claude", "projects", projectSlug(worktreePath));
   mkdirSync(projectDir, { recursive: true });
   const newPath = join(projectDir, `${newId}.jsonl`);
-  const truncated = lines.slice(0, cutIndex + 1).join("\n") + "\n";
-  writeFileSync(newPath, truncated);
+  // Rewrite sessionId and cwd inside JSONL entries so Claude recognises
+  // this as a valid session belonging to the worktree.
+  const rewritten = lines.slice(0, cutIndex + 1).map((line) => {
+    try {
+      const obj = JSON.parse(line);
+      if (obj.sessionId) obj.sessionId = newId;
+      if (obj.cwd) obj.cwd = worktreePath;
+      return JSON.stringify(obj);
+    } catch {
+      return line;
+    }
+  });
+  writeFileSync(newPath, rewritten.join("\n") + "\n");
 
   return { path: newPath, id: newId };
 }
