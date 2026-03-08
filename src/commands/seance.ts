@@ -181,7 +181,7 @@ function inspectOrLaunch(fileRef: string, inspect: boolean): void {
   const transcriptPath = extractTranscriptPath(body);
   const commitTimestamp = getCommitTimestamp(sha);
   const rewound = transcriptPath
-    ? rewindTranscript(transcriptPath, commitTimestamp)
+    ? rewindTranscript(transcriptPath, commitTimestamp, worktreePath)
     : null;
 
   const resumeId = rewound?.id ?? sessionId;
