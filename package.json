@@ -14,7 +14,9 @@
     "prepublishOnly": "npm run build"
   },
   "files": [
-    "dist/",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "!dist/**/*.test.*",
     "scripts/",
     "hooks/",
     "rules/",
