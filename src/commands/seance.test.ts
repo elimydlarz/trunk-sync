@@ -134,21 +134,38 @@ describe("seance integration", () => {
   it("default mode with transcript rewinds session to commit point", () => {
     const binDir = mkdtempSync(join(tmpdir(), "seance-bin-"));
     const logFile = join(binDir, "claude.log");
+    // Mock claude binary that captures the rewound transcript before exiting
+    const captureFile = join(binDir, "captured-transcript.jsonl");
     writeFileSync(
       join(binDir, "claude"),
-      `#!/bin/sh\necho "cwd=$(pwd)" > "${logFile}"\necho "args=$*" >> "${logFile}"\nexit 0\n`
+      `#!/bin/sh
+echo "cwd=$(pwd)" > "${logFile}"
+echo "args=$*" >> "${logFile}"
+# Capture the rewound transcript content so we can verify it
+RESUME_ID=$(echo "$*" | sed 's/.*--resume \\([^ ]*\\).*/\\1/')
+# Find the rewound file by looking in the project dir for the worktree
+WORKTREE_CWD=$(pwd)
+SLUG=$(echo "$WORKTREE_CWD" | sed 's|/|-|g')
+REWOUND_FILE="$HOME/.claude/projects/$SLUG/$RESUME_ID.jsonl"
+if [ -f "$REWOUND_FILE" ]; then
+  cp "$REWOUND_FILE" "${captureFile}"
+fi
+exit 0
+`
     );
     chmodSync(join(binDir, "claude"), 0o755);
 
-    // Create a fake transcript file with messages at known timestamps
+    // Create a fake transcript with realistic sessionId/cwd fields
     const transcriptDir = mkdtempSync(join(tmpdir(), "seance-transcripts-"));
-    const transcriptFile = join(transcriptDir, "aaaa-bbbb-cccc-dddd.jsonl");
+    const originalSessionId = "aaaa-bbbb-cccc-dddd";
+    const transcriptFile = join(transcriptDir, `${originalSessionId}.jsonl`);
     const transcriptLines = [
-      JSON.stringify({ type: "user", timestamp: "2026-03-01T10:00:00.000Z", message: { role: "user", content: "first task" } }),
-      JSON.stringify({ type: "assistant", timestamp: "2026-03-01T10:00:01.000Z", message: { role: "assistant", content: [{ type: "text", text: "working on it" }] } }),
-      JSON.stringify({ type: "assistant", timestamp: "2026-03-01T10:00:02.000Z", message: { role: "assistant", content: [{ type: "tool_use" }] } }),
-      JSON.stringify({ type: "user", timestamp: "2026-03-01T10:00:03.000Z", message: { role: "user", content: "second task" } }),
-      JSON.stringify({ type: "assistant", timestamp: "2026-03-01T10:00:04.000Z", message: { role: "assistant", content: [{ type: "text", text: "later work" }] } }),
+      JSON.stringify({ type: "file-history-snapshot", timestamp: "2026-03-01T09:59:59.000Z", sessionId: originalSessionId, cwd: "/original/project" }),
+      JSON.stringify({ type: "user", timestamp: "2026-03-01T10:00:00.000Z", sessionId: originalSessionId, cwd: "/original/project", message: { role: "user", content: "first task" } }),
+      JSON.stringify({ type: "assistant", timestamp: "2026-03-01T10:00:01.000Z", sessionId: originalSessionId, cwd: "/original/project", message: { role: "assistant", content: [{ type: "text", text: "working on it" }] } }),
+      JSON.stringify({ type: "assistant", timestamp: "2026-03-01T10:00:02.000Z", sessionId: originalSessionId, cwd: "/original/project", message: { role: "assistant", content: [{ type: "tool_use" }] } }),
+      JSON.stringify({ type: "user", timestamp: "2026-03-01T10:00:03.000Z", sessionId: originalSessionId, cwd: "/original/project", message: { role: "user", content: "second task" } }),
+      JSON.stringify({ type: "assistant", timestamp: "2026-03-01T10:00:04.000Z", sessionId: originalSessionId, cwd: "/original/project", message: { role: "assistant", content: [{ type: "text", text: "later work" }] } }),
     ];
     writeFileSync(transcriptFile, transcriptLines.join("\n") + "\n");
 
@@ -157,10 +174,10 @@ describe("seance integration", () => {
     gitIn(dir, "add code.ts");
 
     // Use GIT_COMMITTER_DATE to set the commit timestamp to 10:00:02.500
-    // (between lines 2 and 3 of the transcript)
+    // (between lines 3 and 4 of the transcript)
     const commitDate = "2026-03-01T10:00:02.500Z";
     execSync(
-      `git commit -m 'auto(abcd1234): add code' -m 'File: code.ts\nSession: aaaa-bbbb-cccc-dddd\nTranscript: ${transcriptFile}'`,
+      `git commit -m 'auto(abcd1234): add code' -m 'File: code.ts\nSession: ${originalSessionId}\nTranscript: ${transcriptFile}'`,
       { cwd: dir, env: { ...process.env, GIT_COMMITTER_DATE: commitDate } }
     );
     const commitSha = gitIn(dir, "rev-parse HEAD");
@@ -175,24 +192,50 @@ describe("seance integration", () => {
     // Verify claude was called with a NEW session ID (not the original) and WITHOUT --fork-session
     const log = readFileSync(logFile, "utf-8");
     assert.ok(!log.includes("--fork-session"), "should not use --fork-session when rewound");
-    assert.ok(!log.includes("--resume aaaa-bbbb-cccc-dddd"), "should resume from rewound session, not original");
+    assert.ok(!log.includes(`--resume ${originalSessionId}`), "should resume from rewound session, not original");
     assert.match(log, /--resume/);
 
-    // Verify the rewound transcript was created with only the first 3 lines
-    // (timestamps 10:00:00, 10:00:01, 10:00:02 are <= 10:00:02.500)
-    // The rewound file should have been cleaned up, but let's check it was created correctly
-    // by checking that only 3 lines' worth of data was in the resumed session
+    // Extract the new session ID from the claude args
+    const resumeMatch = log.match(/--resume ([^\s]+)/);
+    assert.ok(resumeMatch, "should have --resume arg");
+    const newSessionId = resumeMatch![1];
+    assert.notEqual(newSessionId, originalSessionId, "new session ID should differ from original");
+
+    // Verify the rewound transcript has correct content
+    assert.ok(existsSync(captureFile), "mock claude should have captured the rewound transcript");
+    const capturedLines = readFileSync(captureFile, "utf-8").split("\n").filter(Boolean);
+    assert.equal(capturedLines.length, 4, "should have 4 lines (timestamps <= 10:00:02.500)");
+
+    // Verify sessionId and cwd were rewritten in the rewound transcript
+    const worktreePath = join(dir, ".claude", "worktrees", `seance-${short}`);
+    for (const line of capturedLines) {
+      const obj = JSON.parse(line);
+      if (obj.sessionId) {
+        assert.equal(obj.sessionId, newSessionId, "sessionId should be rewritten to new ID");
+      }
+      if (obj.cwd) {
+        assert.equal(obj.cwd, worktreePath, "cwd should be rewritten to worktree path");
+      }
+    }
 
     // Verify worktree was cleaned up
     const worktrees = gitIn(dir, "worktree list");
     assert.ok(!worktrees.includes(`seance-${short}`), "worktree should be removed after claude exits");
 
-    // Check that the rewound transcript file was cleaned up
-    const remainingFiles = execSync(`ls "${transcriptDir}"`, { encoding: "utf-8" }).trim().split("\n");
-    assert.equal(remainingFiles.length, 1, "rewound transcript should be cleaned up, only original remains");
+    // Verify rewound transcript was cleaned up (it's in the project dir, not transcriptDir)
+    const slug = worktreePath.replace(/\//g, "-");
+    const projectDir = join(process.env.HOME || "", ".claude", "projects", slug);
+    const rewoundFile = join(projectDir, `${newSessionId}.jsonl`);
+    assert.ok(!existsSync(rewoundFile), "rewound transcript should be cleaned up after claude exits");
+
+    // Original transcript should be untouched
+    const originalLines = readFileSync(transcriptFile, "utf-8").split("\n").filter(Boolean);
+    assert.equal(originalLines.length, 6, "original transcript should be untouched");
 
     rmSync(binDir, { recursive: true, force: true });
     rmSync(transcriptDir, { recursive: true, force: true });
+    // Clean up project dir if empty
+    try { rmSync(projectDir, { recursive: true, force: true }); } catch { /* ok */ }
   });
 
 });
