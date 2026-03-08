@@ -121,7 +121,6 @@ git push origin main
 
 The npm package includes the plugin files (`scripts/`, `hooks/`, `rules/`, `.claude-plugin/`) alongside the CLI (`dist/`). Test files are excluded from the tarball.
 
-`prepublishOnly` runs the build automatically, so `pnpm publish` alone is sufficient — but run `build` first if you want to verify the output.
 
 ### Key conventions
 
