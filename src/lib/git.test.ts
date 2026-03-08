@@ -7,8 +7,10 @@ import { execSync } from "node:child_process";
 import {
   parseFileRef,
   extractSessionId,
+  extractTranscriptPath,
   blame,
   getCommitBody,
+  getCommitTimestamp,
   commandExists,
   shortSha,
 } from "./git.js";
