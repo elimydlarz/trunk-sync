@@ -122,19 +122,10 @@ function inspectOrLaunch(fileRef: string, inspect: boolean): void {
   console.log(`Forking session ${sessionId} (from commit ${shortSha(sha)}: ${subject})`);
   console.log(`Worktree at ${worktreePath}`);
 
-  // Try to fork the original session; fall back to a fresh session if it doesn't exist locally
-  let result = spawnSync("claude", ["--resume", sessionId, "--fork-session", prompt], {
+  const result = spawnSync("claude", ["--resume", sessionId, "--fork-session", prompt], {
     stdio: "inherit",
     cwd: worktreePath,
   });
-
-  if (result.status !== 0) {
-    console.log("Session not found locally — starting fresh session with context.");
-    result = spawnSync("claude", [prompt], {
-      stdio: "inherit",
-      cwd: worktreePath,
-    });
-  }
 
   try {
     execSync(`git worktree remove "${worktreePath}"`, { stdio: "pipe" });
