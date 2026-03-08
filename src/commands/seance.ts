@@ -1,12 +1,16 @@
 import { execSync, spawnSync } from "node:child_process";
-import { join, relative, resolve } from "node:path";
+import { join, dirname, relative, resolve } from "node:path";
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import {
   parseFileRef,
   blame,
   getCommitBody,
   getCommitSubject,
   getCommitDate,
+  getCommitTimestamp,
   extractSessionId,
+  extractTranscriptPath,
   commandExists,
   shortSha,
   getGitRoot,
