@@ -131,4 +131,47 @@ describe("seance integration", () => {
     // Cleanup fake bin dir
     rmSync(binDir, { recursive: true, force: true });
   });
+
+  it("default mode falls back to fresh session when --resume fails", () => {
+    // Create a fake claude that fails on --resume but succeeds on fresh launch
+    const binDir = mkdtempSync(join(tmpdir(), "seance-bin-"));
+    const logFile = join(binDir, "claude.log");
+    writeFileSync(
+      join(binDir, "claude"),
+      `#!/bin/sh
+if echo "$*" | grep -q -- "--resume"; then
+  echo "No conversation found" >&2
+  exit 1
+fi
+echo "cwd=$(pwd)" > "${logFile}"
+echo "args=$*" >> "${logFile}"
+exit 0
+`
+    );
+    chmodSync(join(binDir, "claude"), 0o755);
+
+    const file = join(dir, "code.ts");
+    writeFileSync(file, "const x = 1;\n");
+    gitIn(dir, "add code.ts");
+    gitIn(dir, "commit -m 'auto(abcd1234): add code' -m 'File: code.ts\nSession: aaaa-bbbb-cccc-dddd'");
+    const commitSha = gitIn(dir, "rev-parse HEAD");
+    const short = commitSha.slice(0, 8);
+
+    const output = runSeance(dir, `${file}:1`, binDir);
+
+    // Verify fallback message appeared
+    assert.match(output, /Session not found locally/);
+
+    // Verify claude was called with just the prompt (no --resume)
+    const log = readFileSync(logFile, "utf-8");
+    assert.ok(!log.includes("--resume"), "fallback should not use --resume");
+    assert.match(log, /Explain yourself!/);
+    assert.match(log, new RegExp(`cwd=.*seance-${short}`));
+
+    // Verify worktree was cleaned up
+    const worktrees = gitIn(dir, "worktree list");
+    assert.ok(!worktrees.includes(`seance-${short}`), "worktree should be removed after claude exits");
+
+    rmSync(binDir, { recursive: true, force: true });
+  });
 });
