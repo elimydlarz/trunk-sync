@@ -113,7 +113,7 @@ Two distribution channels — both must be updated together:
 #    - .claude-plugin/plugin.json (plugin)
 
 # 2. Build and publish to npm
-pnpm run build && npm publish
+pnpm run build && pnpm publish
 
 # 3. Push to GitHub (plugin installs from repo root)
 git push origin main
