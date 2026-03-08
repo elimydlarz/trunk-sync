@@ -46,6 +46,7 @@ test/local-cleanup.sh         — manual test teardown
 - **deletion-sync**: deleted tracked files are staged and committed when the hook fires with no file_path
 - **session-trace**: commit body includes `Session: <uuid>` for seance lookback
 - **transcript-enrich**: commit subject extracted from session transcript's first user message
+- **transcript-path**: commit body includes `Transcript: <path>` so seance can locate and rewind the session file
 - **install-preconditions**: CLI checks git repo, remote, jq, claude before installing
 - **seance-inspect**: `--inspect` prints commit SHA, subject, session ID without launching claude
 - **seance-list**: `--list` deduplicates sessions from `git log --grep` and prints a table
