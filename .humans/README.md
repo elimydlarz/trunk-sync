@@ -28,7 +28,7 @@ A thin CLI (`trunk-sync`) that wraps plugin installation with precondition check
 
 ```
 src/cli.ts                   — entry point, argv dispatch
-src/commands/install.ts      — trunk-sync install (preconditions + claude plugin install)
+src/commands/install.ts      — trunk-sync install (preconditions + marketplace add + plugin install)
 src/commands/seance.ts       — trunk-sync seance (blame → session ID → fork session)
 src/lib/git.ts               — shared git utilities
 src/lib/git.test.ts          — unit tests (node:test)
