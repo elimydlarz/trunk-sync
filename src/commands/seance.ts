@@ -75,23 +75,16 @@ function listSessions(): void {
 }
 
 /**
- * Create a truncated copy of a session transcript, containing only messages
- * up to the given timestamp. Returns the path to the new transcript file,
- * or null if the transcript can't be found or truncated.
+ * Temporarily truncate a session transcript in-place so that --resume --fork-session
+ * forks from the commit point rather than the end. The original is backed up and
+ * restored after Claude exits.
+ *
+ * Returns a restore function (call after Claude exits), or null if rewind isn't possible.
  */
-/**
- * Derive the Claude project slug for a given directory path.
- * Claude uses the absolute path with "/" replaced by "-".
- */
-function projectSlug(dirPath: string): string {
-  return dirPath.replace(/\//g, "-");
-}
-
 function rewindTranscript(
   transcriptPath: string,
-  commitTimestamp: string,
-  worktreePath: string
-): { path: string; id: string } | null {
+  commitTimestamp: string
+): { backup: string; restore: () => void } | null {
   const expandedPath = transcriptPath.replace(/^~/, process.env.HOME || "~");
   if (!existsSync(expandedPath)) return null;
 
@@ -99,7 +92,6 @@ function rewindTranscript(
   const lines = readFileSync(expandedPath, "utf-8").split("\n").filter(Boolean);
 
   // Find the last line whose timestamp is <= the commit timestamp.
-  // Include all lines up to and including that point.
   let cutIndex = -1;
   for (let i = 0; i < lines.length; i++) {
     try {
@@ -115,28 +107,18 @@ function rewindTranscript(
 
   if (cutIndex < 0) return null;
 
-  const newId = randomUUID();
-  // Write the rewound transcript into the project directory Claude will use
-  // for the worktree, so --resume can find it by session ID.
-  const home = process.env.HOME || "~";
-  const projectDir = join(home, ".claude", "projects", projectSlug(worktreePath));
-  mkdirSync(projectDir, { recursive: true });
-  const newPath = join(projectDir, `${newId}.jsonl`);
-  // Rewrite sessionId and cwd inside JSONL entries so Claude recognises
-  // this as a valid session belonging to the worktree.
-  const rewritten = lines.slice(0, cutIndex + 1).map((line) => {
-    try {
-      const obj = JSON.parse(line);
-      if (obj.sessionId) obj.sessionId = newId;
-      if (obj.cwd) obj.cwd = worktreePath;
-      return JSON.stringify(obj);
-    } catch {
-      return line;
-    }
-  });
-  writeFileSync(newPath, rewritten.join("\n") + "\n");
+  // Back up the original, then overwrite with the truncated version
+  const backupPath = expandedPath + ".seance-backup";
+  copyFileSync(expandedPath, backupPath);
+  const truncated = lines.slice(0, cutIndex + 1).join("\n") + "\n";
+  writeFileSync(expandedPath, truncated);
 
-  return { path: newPath, id: newId };
+  return {
+    backup: backupPath,
+    restore: () => {
+      try { renameSync(backupPath, expandedPath); } catch { /* best-effort */ }
+    },
+  };
 }
 
 function inspectOrLaunch(fileRef: string, inspect: boolean): void {
