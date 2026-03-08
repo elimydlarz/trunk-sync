@@ -1,6 +1,10 @@
 # trunk-sync
 
-Maximum continuous integration for multi-agent coding. Every file edit is committed and pushed to `origin/main` immediately — multiple agents work simultaneously in git worktrees, continuously integrating every change.
+Two tools for multi-agent coding with Claude Code:
+
+**Trunk-Sync** — continuous integration. Every file edit is committed and pushed to `origin/main` immediately. Multiple agents work simultaneously in git worktrees, continuously integrating every change.
+
+**Seance** — talk to the agent that wrote a line. Point at any line of code and resume the Claude session that wrote it, rewound to that exact moment. Ask it *why*.
 
 ## Quick start
 
@@ -36,7 +40,9 @@ rules/trunk-sync.md        — tells agents not to make manual commits
 | `project` (default) | `.claude/plugins.json` | Active in this repo only — committed to git so collaborators get it too |
 | `user` | `~/.claude/plugins.json` | Active in all repos for this user |
 
-## Running multiple agents
+## Trunk-Sync
+
+### Running multiple agents
 
 ```bash
 claude -w    # each invocation gets its own worktree
@@ -44,7 +50,7 @@ claude -w    # each invocation gets its own worktree
 
 Launch as many as you need. They all push to the same trunk.
 
-## How it works
+### How it works
 
 After every `Edit` or `Write` tool use, the hook:
 
@@ -56,28 +62,38 @@ After every `Edit` or `Write` tool use, the hook:
 
 The hook works from any branch — `main`, a worktree branch, or anything else. It always syncs against `origin/main`.
 
-## Conflicts
+### Conflicts
 
 When two agents edit the same file, `git pull` produces a merge conflict. The hook tells the agent the file has conflict markers (exit code 2). The agent reads the file, edits out the markers normally, and the hook completes the merge automatically.
 
 No git commands needed — just edit the file.
 
-## Seance — talk to the agent that wrote a line
+## Seance
 
-trunk-sync records the Claude session ID in every commit. `seance` traces a line of code back to the session that wrote it and lets you resume that conversation.
+Every trunk-sync commit records the Claude session ID and transcript path. Seance uses this to trace any line of code back to the agent that wrote it.
 
 ```bash
-# See which session wrote line 42 of src/main.ts
-trunk-sync seance src/main.ts:42 --inspect
-
-# Resume that session to continue the conversation
+# Resume the session that wrote line 42 — rewound to that moment
 trunk-sync seance src/main.ts:42
+
+# Inspect without launching Claude
+trunk-sync seance src/main.ts:42 --inspect
 
 # List all trunk-sync sessions in the repo
 trunk-sync seance --list
 ```
 
-`seance` rewinds the session transcript to the exact point where the commit was made, creates a worktree at that commit, and resumes Claude with the same context it had when it wrote the code. The resumed agent is read-only — it can explain and explore but not edit.
+### How it works
+
+1. `git blame` finds the commit that last touched the line
+2. The commit body contains the session ID and transcript path
+3. The transcript is truncated to the commit's timestamp — rewound to that exact point
+4. A worktree is created at the blamed commit so the code matches
+5. Claude resumes with the same context it had when it wrote the line
+
+The resumed agent is **read-only** — it can explain and explore but not edit. When you exit, the worktree and temporary transcript are cleaned up.
+
+If the commit predates transcript recording, seance falls back to forking from the end of the session (less precise but still useful).
 
 ## For humans
 
