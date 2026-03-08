@@ -201,9 +201,19 @@ function inspectOrLaunch(fileRef: string, inspect: boolean): void {
   console.log(`Forking session ${sessionId} (from commit ${shortSha(sha)}: ${subject})`);
   console.log(`Worktree at ${worktreePath}`);
 
-  const args = needsFork
-    ? ["--resume", resumeId, "--fork-session", prompt]
-    : ["--resume", resumeId, prompt];
+  const readOnlyTools = "Read,Grep,Glob,Bash(git:*),Agent,WebSearch,WebFetch";
+  const systemPrompt =
+    "You are in SEANCE MODE — a read-only forensic session. You MUST NOT edit, write, or create any files. " +
+    "Your only job is to explain the code: what it does, how it works, and why it was written this way. " +
+    "You do not have access to Edit, Write, or NotebookEdit tools.";
+
+  const args = [
+    "--resume", resumeId,
+    ...(needsFork ? ["--fork-session"] : []),
+    "--allowedTools", readOnlyTools,
+    "--append-system-prompt", systemPrompt,
+    prompt,
+  ];
 
   const result = spawnSync("claude", args, {
     stdio: "inherit",
