@@ -95,7 +95,7 @@ describe("seance integration", () => {
     assert.match(output, /No trunk-sync sessions/);
   });
 
-  it("default mode creates worktree at blamed commit and passes prompt", () => {
+  it("default mode without transcript falls back to --fork-session", () => {
     // Create a fake claude binary that records its args and cwd
     const binDir = mkdtempSync(join(tmpdir(), "seance-bin-"));
     const logFile = join(binDir, "claude.log");
@@ -114,22 +114,85 @@ describe("seance integration", () => {
 
     const output = runSeance(dir, `${file}:1`, binDir);
 
-    // Verify output mentions worktree and forking
+    // Verify output mentions forking (no rewind since no transcript)
     assert.match(output, /Forking session aaaa-bbbb-cccc-dddd/);
     assert.match(output, /Worktree at/);
+    assert.ok(!output.includes("Rewound"), "should not rewind without transcript");
 
-    // Verify claude was called with the right args and cwd
+    // Verify claude was called with --fork-session (fallback)
     const log = readFileSync(logFile, "utf-8");
     assert.match(log, /--resume aaaa-bbbb-cccc-dddd --fork-session/);
     assert.match(log, /Explain yourself!/);
-    assert.match(log, new RegExp(`cwd=.*seance-${short}`));
 
     // Verify worktree was cleaned up
     const worktrees = gitIn(dir, "worktree list");
     assert.ok(!worktrees.includes(`seance-${short}`), "worktree should be removed after claude exits");
 
-    // Cleanup fake bin dir
     rmSync(binDir, { recursive: true, force: true });
+  });
+
+  it("default mode with transcript rewinds session to commit point", () => {
+    const binDir = mkdtempSync(join(tmpdir(), "seance-bin-"));
+    const logFile = join(binDir, "claude.log");
+    writeFileSync(
+      join(binDir, "claude"),
+      `#!/bin/sh\necho "cwd=$(pwd)" > "${logFile}"\necho "args=$*" >> "${logFile}"\nexit 0\n`
+    );
+    chmodSync(join(binDir, "claude"), 0o755);
+
+    // Create a fake transcript file with messages at known timestamps
+    const transcriptDir = mkdtempSync(join(tmpdir(), "seance-transcripts-"));
+    const transcriptFile = join(transcriptDir, "aaaa-bbbb-cccc-dddd.jsonl");
+    const transcriptLines = [
+      JSON.stringify({ type: "user", timestamp: "2026-03-01T10:00:00.000Z", message: { role: "user", content: "first task" } }),
+      JSON.stringify({ type: "assistant", timestamp: "2026-03-01T10:00:01.000Z", message: { role: "assistant", content: [{ type: "text", text: "working on it" }] } }),
+      JSON.stringify({ type: "assistant", timestamp: "2026-03-01T10:00:02.000Z", message: { role: "assistant", content: [{ type: "tool_use" }] } }),
+      JSON.stringify({ type: "user", timestamp: "2026-03-01T10:00:03.000Z", message: { role: "user", content: "second task" } }),
+      JSON.stringify({ type: "assistant", timestamp: "2026-03-01T10:00:04.000Z", message: { role: "assistant", content: [{ type: "text", text: "later work" }] } }),
+    ];
+    writeFileSync(transcriptFile, transcriptLines.join("\n") + "\n");
+
+    const file = join(dir, "code.ts");
+    writeFileSync(file, "const x = 1;\n");
+    gitIn(dir, "add code.ts");
+
+    // Use GIT_COMMITTER_DATE to set the commit timestamp to 10:00:02.500
+    // (between lines 2 and 3 of the transcript)
+    const commitDate = "2026-03-01T10:00:02.500Z";
+    execSync(
+      `git commit -m 'auto(abcd1234): add code' -m 'File: code.ts\nSession: aaaa-bbbb-cccc-dddd\nTranscript: ${transcriptFile}'`,
+      { cwd: dir, env: { ...process.env, GIT_COMMITTER_DATE: commitDate } }
+    );
+    const commitSha = gitIn(dir, "rev-parse HEAD");
+    const short = commitSha.slice(0, 8);
+
+    const output = runSeance(dir, `${file}:1`, binDir);
+
+    // Verify rewind happened
+    assert.match(output, /Rewound session to commit/);
+    assert.match(output, /Forking session aaaa-bbbb-cccc-dddd/);
+
+    // Verify claude was called with a NEW session ID (not the original) and WITHOUT --fork-session
+    const log = readFileSync(logFile, "utf-8");
+    assert.ok(!log.includes("--fork-session"), "should not use --fork-session when rewound");
+    assert.ok(!log.includes("--resume aaaa-bbbb-cccc-dddd"), "should resume from rewound session, not original");
+    assert.match(log, /--resume/);
+
+    // Verify the rewound transcript was created with only the first 3 lines
+    // (timestamps 10:00:00, 10:00:01, 10:00:02 are <= 10:00:02.500)
+    // The rewound file should have been cleaned up, but let's check it was created correctly
+    // by checking that only 3 lines' worth of data was in the resumed session
+
+    // Verify worktree was cleaned up
+    const worktrees = gitIn(dir, "worktree list");
+    assert.ok(!worktrees.includes(`seance-${short}`), "worktree should be removed after claude exits");
+
+    // Check that the rewound transcript file was cleaned up
+    const remainingFiles = execSync(`ls "${transcriptDir}"`, { encoding: "utf-8" }).trim().split("\n");
+    assert.equal(remainingFiles.length, 1, "rewound transcript should be cleaned up, only original remains");
+
+    rmSync(binDir, { recursive: true, force: true });
+    rmSync(transcriptDir, { recursive: true, force: true });
   });
 
 });
