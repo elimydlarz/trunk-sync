@@ -10,7 +10,7 @@
     "build": "tsc",
     "postbuild": "chmod +x dist/cli.js",
     "dev": "tsx src/cli.ts",
-    "test": "node --test 'dist/**/*.test.js'",
+    "test": "node --test --test-reporter spec 'dist/**/*.test.js'",
     "prepublishOnly": "npm run build"
   },
   "files": [
