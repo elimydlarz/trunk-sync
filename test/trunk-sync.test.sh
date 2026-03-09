@@ -164,7 +164,25 @@ cd "$NOT_GIT"
 run_hook "$(make_input "$NOT_GIT/file.txt" "" "Edit" "")"
 assert_exit 0 "not in a git repo exits 0"
 
-# 3. File outside repo → exit 0, no commit
+# 3. No remote → commits locally, exits 0, does not attempt push
+NO_REMOTE="$TMPDIR_BASE/no-remote"
+git init "$NO_REMOTE" -b main >/dev/null 2>&1
+git -C "$NO_REMOTE" config user.email "test@test.com"
+git -C "$NO_REMOTE" config user.name "Test"
+echo "seed" > "$NO_REMOTE/seed.txt"
+git -C "$NO_REMOTE" add seed.txt
+git -C "$NO_REMOTE" commit -m "seed" >/dev/null 2>&1
+
+echo "edited" > "$NO_REMOTE/seed.txt"
+cd "$NO_REMOTE"
+run_hook "$(make_input "$NO_REMOTE/seed.txt" "no-remote-sess" "Edit" "")"
+assert_exit 0 "no remote exits 0"
+SUBJECT=$(last_subject "$NO_REMOTE")
+assert_contains "$SUBJECT" "auto(no-remot" "no remote still commits locally"
+NR_COUNT=$(commit_count "$NO_REMOTE")
+assert_equals "2" "$NR_COUNT" "no remote created exactly one new commit"
+
+# 4. File outside repo → exit 0, no commit
 OUTSIDE="$TMPDIR_BASE/outside.txt"
 echo "outside" > "$OUTSIDE"
 cd "$WT_A"
