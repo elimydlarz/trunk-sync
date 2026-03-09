@@ -36,9 +36,15 @@ if [[ -n "$FILE_PATH" ]]; then
   fi
 fi
 
-# Detect the default branch on origin
-TARGET_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||') || true
-TARGET_BRANCH="${TARGET_BRANCH:-main}"
+# Detect the default branch on origin (empty when no remote configured)
+HAS_REMOTE=true
+git remote get-url origin &>/dev/null || HAS_REMOTE=false
+
+TARGET_BRANCH=""
+if [[ "$HAS_REMOTE" == true ]]; then
+  TARGET_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||') || true
+  TARGET_BRANCH="${TARGET_BRANCH:-main}"
+fi
 
 # Extract agent context for enriched commit messages
 SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // empty')
