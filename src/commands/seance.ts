@@ -185,19 +185,20 @@ function inspectOrLaunch(fileRef: string, inspect: boolean): void {
   const relFile = relative(root, resolve(file));
   const prompt = `*STOP*. *HALT ALL PREVIOUS OPERATIONS AND STOP IMMEDIATELY*. *DO NOT CONTINUE YOUR CURRENT CHAIN OF THOUGHT*. This session already ended. It has been resumed and rewound — including the code — so you can answer questions about why it was written this way. *DO NOT* change any code. Start by explaining ${relFile}:${line} (commit ${shortSha(sha)}) — what does it do, how does it work, and why is it written this way?`;
 
-  // Try to rewind the session transcript to the commit point
+  // Rewind the session transcript to the commit point
   const transcriptPath = extractTranscriptPath(body);
-  const commitTimestamp = getCommitTimestamp(sha);
-  const rewound = transcriptPath
-    ? rewindTranscript(transcriptPath, commitTimestamp, worktreePath)
-    : null;
-
-  const resumeId = rewound?.id ?? sessionId;
-  const needsFork = !rewound; // only fork if we couldn't rewind (falling back to full session)
-
-  if (rewound) {
-    console.log(`Rewound session to commit ${shortSha(sha)} (${commitTimestamp})`);
+  if (!transcriptPath) {
+    console.error(`Commit ${shortSha(sha)} has no Transcript field.`);
+    process.exit(1);
   }
+  const commitTimestamp = getCommitTimestamp(sha);
+  const rewound = rewindTranscript(transcriptPath, commitTimestamp, worktreePath);
+  if (!rewound) {
+    console.error(`Could not rewind transcript for commit ${shortSha(sha)}.`);
+    process.exit(1);
+  }
+
+  console.log(`Rewound session to commit ${shortSha(sha)} (${commitTimestamp})`);
   console.log(`Forking session ${sessionId} (from commit ${shortSha(sha)}: ${subject})`);
   console.log(`Worktree at ${worktreePath}`);
 
@@ -208,8 +209,7 @@ function inspectOrLaunch(fileRef: string, inspect: boolean): void {
     "You do not have access to Edit, Write, or NotebookEdit tools.";
 
   const args = [
-    "--resume", resumeId,
-    ...(needsFork ? ["--fork-session"] : []),
+    "--resume", rewound.id,
     "--allowedTools", readOnlyTools,
     "--append-system-prompt", systemPrompt,
     prompt,
