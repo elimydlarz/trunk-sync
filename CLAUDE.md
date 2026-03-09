@@ -9,7 +9,7 @@ trunk-sync has two independent layers that share one git repo:
 **Hook layer** — a Claude Code plugin (shell script) that fires after every Edit/Write tool use. It stages, commits, pulls from `origin/main`, and pushes — keeping multiple agents in continuous integration. Merge conflicts are surfaced as hook feedback (exit 2); the agent resolves by editing the file, and the hook completes the merge on the next fire.
 
 **CLI layer** — a TypeScript CLI (`trunk-sync`) with two commands:
-- `install` — precondition checks (git repo, remote, jq, claude), adds the GitHub repo as a marketplace source, then installs the plugin via `claude plugin install` (default project scope, `--scope user` for all repos)
+- `install` — soft checks (git repo warns, missing remote is silent), hard checks (jq, claude), adds the GitHub repo as a marketplace source, then installs the plugin via `claude plugin install` (default project scope, `--scope user` for all repos)
 - `seance` — traces a line of code via `git blame` → commit body → `Session:` + `Transcript:` fields → truncates the session transcript to that commit's timestamp → creates a worktree at that commit → resumes the rewound session so Claude has the same context it had when it wrote the code
 
 The hook writes `Session: <uuid>` and `Transcript: <path>` into every commit body. Seance reads both back. This is the only coupling between the two layers.
