@@ -11,7 +11,7 @@
     "postbuild": "chmod +x dist/cli.js",
     "dev": "tsx src/cli.ts",
     "test": "node --test --test-reporter spec 'dist/**/*.test.js'",
-    "version": "node -e \"const p=JSON.parse(require('fs').readFileSync('.claude-plugin/plugin.json','utf8'));p.version=require('./package.json').version;require('fs').writeFileSync('.claude-plugin/plugin.json',JSON.stringify(p,null,2)+'\\n')\" && git add .claude-plugin/plugin.json",
+    "version": "node scripts/sync-plugin-version.js && git add .claude-plugin/plugin.json",
     "prepublishOnly": "pnpm run build"
   },
   "files": [

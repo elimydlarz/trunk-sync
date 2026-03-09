@@ -23,6 +23,7 @@ Key domain concepts: worktree (each agent gets one via `claude -w`), trunk (alwa
 .claude-plugin/plugin.json    — plugin manifest (name, version)
 hooks/hooks.json              — hook registration (Edit|Write|Bash → scripts/trunk-sync.sh)
 scripts/trunk-sync.sh         — 4-line bash wrapper: exec node dist/lib/hook-entry.js
+scripts/sync-plugin-version.js — npm version hook: syncs plugin.json version from package.json
 rules/trunk-sync.md           — agent-facing rules (don't manual-commit, etc.)
 
 src/lib/hook-types.ts         — types (HookInput, RepoState, HookPlan)
