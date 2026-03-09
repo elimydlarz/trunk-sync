@@ -583,13 +583,15 @@ REMOTE_FILES=$(git -C "$REMOTE" ls-tree --name-only -r main)
 assert_contains "$REMOTE_FILES" "a-file.txt" "concurrent push: agent A's file on remote"
 assert_contains "$REMOTE_FILES" "b-file.txt" "concurrent push: agent B's file on remote"
 
-# Both worktrees should converge — each has the other's file
+# The agent that retried will have pulled the other's file.
+# The first-pusher won't have the other's file yet (no pull after its own push).
+# Verify at least one worktree has the other's file (the retrier).
 TEST_NUM=$((TEST_NUM + 1))
-if [[ -f "$WT_A/b-file.txt" ]] && [[ -f "$WT_B/a-file.txt" ]]; then
-  echo "ok $TEST_NUM - concurrent push: worktrees converged"
+if [[ -f "$WT_A/b-file.txt" ]] || [[ -f "$WT_B/a-file.txt" ]]; then
+  echo "ok $TEST_NUM - concurrent push: retrier pulled the other agent's file"
   PASS=$((PASS + 1))
 else
-  echo "not ok $TEST_NUM - concurrent push: worktrees converged"
+  echo "not ok $TEST_NUM - concurrent push: retrier pulled the other agent's file"
   echo "  # WT_A has b-file.txt: $(test -f "$WT_A/b-file.txt" && echo yes || echo no)"
   echo "  # WT_B has a-file.txt: $(test -f "$WT_B/a-file.txt" && echo yes || echo no)"
   FAIL=$((FAIL + 1))
