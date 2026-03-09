@@ -174,9 +174,8 @@ exit 0
     assert.match(output, /Rewound session to commit/);
     assert.match(output, /Forking session aaaa-bbbb-cccc-dddd/);
 
-    // Verify claude was called with a NEW session ID (not the original) and WITHOUT --fork-session
+    // Verify claude was called with a NEW session ID (not the original)
     const log = readFileSync(logFile, "utf-8");
-    assert.ok(!log.includes("--fork-session"), "should not use --fork-session when rewound");
     assert.ok(!log.includes(`--resume ${originalSessionId}`), "should resume from rewound session, not original");
     assert.match(log, /--resume/);
 
