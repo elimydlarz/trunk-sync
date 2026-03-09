@@ -657,6 +657,56 @@ if [[ "$HOOK_EXIT_A" -eq 2 ]]; then CONFLICT_STDERR="$STDERR_A"; fi
 if [[ "$HOOK_EXIT_B" -eq 2 ]]; then CONFLICT_STDERR="$STDERR_B"; fi
 assert_contains "$CONFLICT_STDERR" "TRUNK-SYNC CONFLICT" "concurrent conflict: loser gets conflict message"
 
+# --- Transcript snapshots ---
+
+# 28. Default: no .transcripts/ created
+setup_repos
+echo "no snapshot" > "$WT_A/seed.txt"
+TRANSCRIPT="$TMPDIR_BASE/transcript-nosnapshot.jsonl"
+create_transcript "$TRANSCRIPT" "No snapshot task"
+cd "$WT_A"
+run_hook "$(make_input "$WT_A/seed.txt" "nosn1234" "Edit" "$TRANSCRIPT")"
+assert_exit 0 "default: commit succeeds without snapshot"
+REMOTE_FILES=$(git -C "$REMOTE" ls-tree --name-only -r main)
+assert_not_contains "$REMOTE_FILES" ".transcripts" "default: no .transcripts/ created"
+
+# 29. Enabled: snapshot in same commit as code change
+setup_repos
+echo "commit-transcripts=true" > "$HOME/.trunk-sync"
+TRANSCRIPT="$TMPDIR_BASE/transcript-snap.jsonl"
+create_transcript "$TRANSCRIPT" "Snapshot task"
+echo "with snapshot" > "$WT_A/seed.txt"
+cd "$WT_A"
+run_hook "$(make_input "$WT_A/seed.txt" "snap1234" "Edit" "$TRANSCRIPT")"
+assert_exit 0 "snapshot: commit succeeds"
+
+# Verify snapshot is in the same commit as the code change
+LAST_SHA=$(git -C "$WT_A" rev-parse HEAD)
+SNAPSHOT_FILES=$(git -C "$WT_A" diff-tree --no-commit-id --name-only -r "$LAST_SHA" -- .transcripts/)
+TEST_NUM=$((TEST_NUM + 1))
+if [[ -n "$SNAPSHOT_FILES" ]]; then
+  echo "ok $TEST_NUM - snapshot: .transcripts/ file in same commit as code change"
+  PASS=$((PASS + 1))
+else
+  echo "not ok $TEST_NUM - snapshot: .transcripts/ file in same commit as code change"
+  FAIL=$((FAIL + 1))
+fi
+assert_contains "$SNAPSHOT_FILES" "snap1234" "snapshot: filename contains session short ID"
+
+# 30. Enabled but no transcript_path: graceful no-op
+setup_repos
+echo "commit-transcripts=true" > "$HOME/.trunk-sync"
+echo "no transcript path" > "$WT_A/seed.txt"
+cd "$WT_A"
+run_hook "$(make_input "$WT_A/seed.txt" "notp1234" "Edit" "")"
+assert_exit 0 "snapshot with no transcript_path: exits 0"
+LAST_SHA=$(git -C "$WT_A" rev-parse HEAD)
+SNAPSHOT_FILES=$(git -C "$WT_A" diff-tree --no-commit-id --name-only -r "$LAST_SHA" -- .transcripts/)
+assert_equals "" "$SNAPSHOT_FILES" "snapshot with no transcript_path: no .transcripts/ created"
+
+# Clean up config
+rm -f "$HOME/.trunk-sync"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""

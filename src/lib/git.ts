@@ -73,3 +73,15 @@ export function commandExists(cmd: string): boolean {
 export function shortSha(sha: string): string {
   return sha.slice(0, 8);
 }
+
+export function findSnapshotInCommit(sha: string, cwd?: string): string | null {
+  try {
+    const output = execSync(
+      `git diff-tree --root --no-commit-id --name-only -r "${sha}" -- .transcripts/`,
+      { encoding: "utf-8", cwd }
+    ).trim();
+    return output || null;
+  } catch {
+    return null;
+  }
+}

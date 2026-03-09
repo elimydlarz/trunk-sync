@@ -26,3 +26,4 @@ Run `git pull` once at the beginning of your session to start from the latest tr
 
 - Make manual git commits — the hook handles it
 - Run `git pull` or `git push` after your initial pull — the hook handles it
+- Edit or delete files in `.transcripts/` — these are auto-generated session snapshots

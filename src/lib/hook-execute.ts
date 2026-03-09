@@ -1,7 +1,8 @@
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, mkdirSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { readConfig } from "../commands/config.js";
 import type { HookInput, RepoState, HookPlan, SyncPlan } from "./hook-types.js";
 import { HOOK_EXPLAINER } from "./hook-types.js";
 import { extractTaskFromTranscript, buildCommitPlanWithTask } from "./hook-plan.js";
@@ -182,8 +183,34 @@ export function executePlan(
     execSync(`git commit -m "${escapeForShell(finalCommit.subject)}"`);
   }
 
+  // Snapshot transcript into the commit (opt-in via config)
+  amendWithTranscriptSnapshot(input, state);
+
   if (sync) return executeSync(sync);
   return { exitCode: 0 };
+}
+
+function amendWithTranscriptSnapshot(input: HookInput, state: RepoState): void {
+  try {
+    const config = readConfig();
+    if (config.get("commit-transcripts") !== "true") return;
+    if (!input.transcript_path || !input.session_id) return;
+
+    const expanded = input.transcript_path.replace(/^~/, homedir());
+    if (!existsSync(expanded)) return;
+
+    const snapshotDir = join(state.repoRoot, ".transcripts");
+    mkdirSync(snapshotDir, { recursive: true });
+    const shortSession = input.session_id.slice(0, 8);
+    const epoch = Math.floor(Date.now() / 1000);
+    const snapshotName = `${shortSession}-${epoch}.jsonl`;
+    copyFileSync(expanded, join(snapshotDir, snapshotName));
+
+    execSync(`git add -- "${snapshotDir}"`, { cwd: state.repoRoot });
+    execSync(`git commit --amend --no-edit`, { cwd: state.repoRoot });
+  } catch {
+    // best-effort — don't fail the hook if snapshot fails
+  }
 }
 
 function executeSync(sync: SyncPlan): { exitCode: number; stderr?: string } {

@@ -11,6 +11,7 @@ import {
   getCommitTimestamp,
   extractSessionId,
   extractTranscriptPath,
+  findSnapshotInCommit,
   commandExists,
   shortSha,
   getGitRoot,
@@ -185,14 +186,31 @@ function inspectOrLaunch(fileRef: string, inspect: boolean): void {
   const relFile = relative(root, resolve(file));
   const prompt = `*STOP*. *HALT ALL PREVIOUS OPERATIONS AND STOP IMMEDIATELY*. *DO NOT CONTINUE YOUR CURRENT CHAIN OF THOUGHT*. This session already ended. It has been resumed and rewound — including the code — so you can answer questions about why it was written this way. *DO NOT* change any code. Start by explaining ${relFile}:${line} (commit ${shortSha(sha)}) — what does it do, how does it work, and why is it written this way?`;
 
-  // Rewind the session transcript to the commit point
-  const transcriptPath = extractTranscriptPath(body);
-  if (!transcriptPath) {
-    console.error(`Commit ${shortSha(sha)} has no Transcript field.`);
+  // Rewind the session transcript to the commit point.
+  // Try snapshot from .transcripts/ in the commit first, fall back to Transcript: field.
+  const snapshotRelPath = findSnapshotInCommit(sha);
+  let transcriptSource: string | null = null;
+  if (snapshotRelPath) {
+    const snapshotAbsPath = join(root, snapshotRelPath);
+    if (existsSync(snapshotAbsPath)) {
+      transcriptSource = snapshotAbsPath;
+    }
+  }
+  if (!transcriptSource) {
+    const transcriptPath = extractTranscriptPath(body);
+    if (transcriptPath) {
+      const expanded = transcriptPath.replace(/^~/, process.env.HOME || "~");
+      if (existsSync(expanded)) {
+        transcriptSource = expanded;
+      }
+    }
+  }
+  if (!transcriptSource) {
+    console.error(`Commit ${shortSha(sha)} has no transcript (no .transcripts/ snapshot and no Transcript field).`);
     process.exit(1);
   }
   const commitTimestamp = getCommitTimestamp(sha);
-  const rewound = rewindTranscript(transcriptPath, commitTimestamp, worktreePath);
+  const rewound = rewindTranscript(transcriptSource, commitTimestamp, worktreePath);
   if (!rewound) {
     console.error(`Could not rewind transcript for commit ${shortSha(sha)}.`);
     process.exit(1);

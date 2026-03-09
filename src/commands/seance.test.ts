@@ -109,7 +109,70 @@ describe("seance integration", () => {
     gitIn(dir, "commit -m 'auto(abcd1234): add code' -m 'File: code.ts\nSession: aaaa-bbbb-cccc-dddd'");
 
     const output = runSeance(dir, `${file}:1`, binDir);
-    assert.match(output, /has no Transcript field/);
+    assert.match(output, /has no transcript/);
+
+    rmSync(binDir, { recursive: true, force: true });
+  });
+
+  it("default mode with .transcripts/ snapshot uses snapshot for rewind", () => {
+    const binDir = mkdtempSync(join(tmpdir(), "seance-bin-"));
+    const logFile = join(binDir, "claude.log");
+    const captureFile = join(binDir, "captured-transcript.jsonl");
+    writeFileSync(
+      join(binDir, "claude"),
+      `#!/bin/sh
+echo "cwd=$(pwd)" > "${logFile}"
+echo "args=$*" >> "${logFile}"
+RESUME_ID=$(echo "$*" | sed 's/.*--resume \\([^ ]*\\).*/\\1/')
+WORKTREE_CWD=$(pwd)
+SLUG=$(echo "$WORKTREE_CWD" | sed 's|[/.]|-|g')
+REWOUND_FILE="$HOME/.claude/projects/$SLUG/$RESUME_ID.jsonl"
+if [ -f "$REWOUND_FILE" ]; then
+  cp "$REWOUND_FILE" "${captureFile}"
+fi
+exit 0
+`
+    );
+    chmodSync(join(binDir, "claude"), 0o755);
+
+    // Create a transcript snapshot as part of the commit (simulating hook behavior)
+    const originalSessionId = "snap-bbbb-cccc-dddd";
+    const transcriptLines = [
+      JSON.stringify({ type: "file-history-snapshot", timestamp: "2026-03-01T09:59:59.000Z", sessionId: originalSessionId, cwd: "/original/project" }),
+      JSON.stringify({ type: "user", timestamp: "2026-03-01T10:00:00.000Z", sessionId: originalSessionId, cwd: "/original/project", message: { role: "user", content: "snapshot task" } }),
+      JSON.stringify({ type: "assistant", timestamp: "2026-03-01T10:00:01.000Z", sessionId: originalSessionId, cwd: "/original/project", message: { role: "assistant", content: [{ type: "text", text: "working" }] } }),
+    ];
+
+    const file = join(dir, "code.ts");
+    writeFileSync(file, "const x = 1;\n");
+    gitIn(dir, "add code.ts");
+
+    // Commit with code, then amend to include snapshot (like the hook does)
+    const commitDate = "2026-03-01T10:00:01.500Z";
+    execSync(
+      `git commit -m 'auto(snap1234): add code' -m 'File: code.ts\nSession: ${originalSessionId}'`,
+      { cwd: dir, env: { ...process.env, GIT_COMMITTER_DATE: commitDate } }
+    );
+
+    // Add snapshot to .transcripts/ and amend
+    const snapshotDir = join(dir, ".transcripts");
+    mkdirSync(snapshotDir, { recursive: true });
+    writeFileSync(join(snapshotDir, "snap1234-1234567890.jsonl"), transcriptLines.join("\n") + "\n");
+    execSync("git add .transcripts && git commit --amend --no-edit", {
+      cwd: dir,
+      env: { ...process.env, GIT_COMMITTER_DATE: commitDate },
+    });
+
+    const output = runSeance(dir, `${file}:1`, binDir);
+
+    // Should rewind using the snapshot (no Transcript: field needed)
+    assert.match(output, /Rewound session to commit/);
+    assert.match(output, new RegExp(`Forking session ${originalSessionId}`));
+
+    // Verify the rewound transcript was created from snapshot
+    assert.ok(existsSync(captureFile), "mock claude should have captured the rewound transcript");
+    const capturedLines = readFileSync(captureFile, "utf-8").split("\n").filter(Boolean);
+    assert.equal(capturedLines.length, 3, "should have all 3 lines (timestamps <= commit time)");
 
     rmSync(binDir, { recursive: true, force: true });
   });

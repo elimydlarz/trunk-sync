@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createRequire } from "node:module";
+import { configCommand } from "./commands/config.js";
 import { installCommand } from "./commands/install.js";
 import { seanceCommand } from "./commands/seance.js";
 
@@ -14,6 +15,7 @@ Usage: trunk-sync <command> [options]
 Commands:
   install   Install the trunk-sync Claude Code plugin
   seance    Find which Claude session wrote a line of code
+  config    Read or write trunk-sync configuration
 
 Options:
   --version  Show version
@@ -39,6 +41,9 @@ switch (command) {
     break;
   case "seance":
     seanceCommand(subArgs);
+    break;
+  case "config":
+    configCommand(subArgs);
     break;
   default:
     console.error(`Unknown command: ${command}\n`);
