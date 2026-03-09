@@ -535,6 +535,108 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# --- Concurrent push race ---
+
+# 26. Concurrent push — two worktrees push different files simultaneously,
+#     at least one needs to retry; both succeed
+setup_repos
+
+# Agent A and B each create different files
+echo "A's content" > "$WT_A/a-file.txt"
+echo "B's content" > "$WT_B/b-file.txt"
+
+# Run both hooks concurrently — they race to push to origin/main
+cd "$WT_A"
+HOOK_EXIT_A=0
+STDERR_A=""
+STDERR_FILE_A="$TMPDIR_BASE/stderr-race-a"
+(printf '%s' "$(make_input "$WT_A/a-file.txt" "race-a" "Write" "")" | bash "$HOOK" >/dev/null 2>"$STDERR_FILE_A") &
+PID_A=$!
+
+cd "$WT_B"
+HOOK_EXIT_B=0
+STDERR_B=""
+STDERR_FILE_B="$TMPDIR_BASE/stderr-race-b"
+(printf '%s' "$(make_input "$WT_B/b-file.txt" "race-b" "Write" "")" | bash "$HOOK" >/dev/null 2>"$STDERR_FILE_B") &
+PID_B=$!
+
+wait $PID_A || HOOK_EXIT_A=$?
+wait $PID_B || HOOK_EXIT_B=$?
+STDERR_A=$(cat "$STDERR_FILE_A")
+STDERR_B=$(cat "$STDERR_FILE_B")
+
+# Both must succeed (push retry handles the race)
+TEST_NUM=$((TEST_NUM + 1))
+if [[ "$HOOK_EXIT_A" -eq 0 && "$HOOK_EXIT_B" -eq 0 ]]; then
+  echo "ok $TEST_NUM - concurrent push: both agents succeed"
+  PASS=$((PASS + 1))
+else
+  echo "not ok $TEST_NUM - concurrent push: both agents succeed"
+  echo "  # agent A exit=$HOOK_EXIT_A, agent B exit=$HOOK_EXIT_B"
+  [[ -n "$STDERR_A" ]] && echo "  # agent A stderr: $(head -1 <<< "$STDERR_A")"
+  [[ -n "$STDERR_B" ]] && echo "  # agent B stderr: $(head -1 <<< "$STDERR_B")"
+  FAIL=$((FAIL + 1))
+fi
+
+# Both files should be on the remote
+REMOTE_FILES=$(git -C "$REMOTE" ls-tree --name-only -r main)
+assert_contains "$REMOTE_FILES" "a-file.txt" "concurrent push: agent A's file on remote"
+assert_contains "$REMOTE_FILES" "b-file.txt" "concurrent push: agent B's file on remote"
+
+# Both worktrees should converge — each has the other's file
+TEST_NUM=$((TEST_NUM + 1))
+if [[ -f "$WT_A/b-file.txt" ]] && [[ -f "$WT_B/a-file.txt" ]]; then
+  echo "ok $TEST_NUM - concurrent push: worktrees converged"
+  PASS=$((PASS + 1))
+else
+  echo "not ok $TEST_NUM - concurrent push: worktrees converged"
+  echo "  # WT_A has b-file.txt: $(test -f "$WT_A/b-file.txt" && echo yes || echo no)"
+  echo "  # WT_B has a-file.txt: $(test -f "$WT_B/a-file.txt" && echo yes || echo no)"
+  FAIL=$((FAIL + 1))
+fi
+
+# 27. Concurrent push conflict — two worktrees edit the same file simultaneously,
+#     one succeeds, the other gets a conflict (exit 2)
+setup_repos
+
+echo "A's version" > "$WT_A/seed.txt"
+echo "B's version" > "$WT_B/seed.txt"
+
+cd "$WT_A"
+HOOK_EXIT_A=0
+STDERR_FILE_A="$TMPDIR_BASE/stderr-conflict-a"
+(printf '%s' "$(make_input "$WT_A/seed.txt" "conf-a" "Edit" "")" | bash "$HOOK" >/dev/null 2>"$STDERR_FILE_A") &
+PID_A=$!
+
+cd "$WT_B"
+HOOK_EXIT_B=0
+STDERR_FILE_B="$TMPDIR_BASE/stderr-conflict-b"
+(printf '%s' "$(make_input "$WT_B/seed.txt" "conf-b" "Edit" "")" | bash "$HOOK" >/dev/null 2>"$STDERR_FILE_B") &
+PID_B=$!
+
+wait $PID_A || HOOK_EXIT_A=$?
+wait $PID_B || HOOK_EXIT_B=$?
+STDERR_A=$(cat "$STDERR_FILE_A")
+STDERR_B=$(cat "$STDERR_FILE_B")
+
+# Exactly one should succeed (0) and one should conflict (2)
+TEST_NUM=$((TEST_NUM + 1))
+EXITS_SORTED=$(printf '%s\n%s' "$HOOK_EXIT_A" "$HOOK_EXIT_B" | sort -n | tr '\n' ',')
+if [[ "$EXITS_SORTED" == "0,2," ]]; then
+  echo "ok $TEST_NUM - concurrent conflict: one succeeds, one conflicts"
+  PASS=$((PASS + 1))
+else
+  echo "not ok $TEST_NUM - concurrent conflict: one succeeds, one conflicts"
+  echo "  # exits: A=$HOOK_EXIT_A B=$HOOK_EXIT_B (expected one 0, one 2)"
+  FAIL=$((FAIL + 1))
+fi
+
+# The failing agent should get TRUNK-SYNC CONFLICT feedback
+CONFLICT_STDERR=""
+if [[ "$HOOK_EXIT_A" -eq 2 ]]; then CONFLICT_STDERR="$STDERR_A"; fi
+if [[ "$HOOK_EXIT_B" -eq 2 ]]; then CONFLICT_STDERR="$STDERR_B"; fi
+assert_contains "$CONFLICT_STDERR" "TRUNK-SYNC CONFLICT" "concurrent conflict: loser gets conflict message"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""
