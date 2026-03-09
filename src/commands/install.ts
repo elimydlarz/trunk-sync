@@ -23,17 +23,18 @@ Options:
     process.exit(1);
   }
 
-  // Precondition checks
+  // Precondition checks (git repo and remote are soft warnings — trunk-sync
+  // works without them, just with reduced functionality)
   if (!getGitRoot()) {
-    console.error("Must be run inside a git repository.");
-    process.exit(1);
-  }
-
-  try {
-    execSync("git remote get-url origin", { stdio: "ignore" });
-  } catch {
-    console.error("No git remote found. Run: git remote add origin <url>");
-    process.exit(1);
+    console.warn(
+      "Warning: not inside a git repository. trunk-sync needs git to auto-commit and sync."
+    );
+  } else {
+    try {
+      execSync("git remote get-url origin", { stdio: "ignore" });
+    } catch {
+      // No remote is fine — hook will commit locally and skip pushing
+    }
   }
 
   if (!commandExists("jq")) {
