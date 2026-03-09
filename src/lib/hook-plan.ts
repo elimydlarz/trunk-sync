@@ -129,21 +129,14 @@ export function buildCommitBody(
 
 /**
  * Extract the first user message from a JSONL transcript.
+ * Handles both single-line JSONL and pretty-printed JSON objects.
  * Filters out hook feedback, plan headers, XML tags, and empty lines.
  * Returns first 72 chars or null.
  */
 export function extractTaskFromTranscript(content: string): string | null {
-  const lines = content.split("\n");
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    if (!isUserMessage(parsed)) continue;
-    const msg = (parsed as { message: { content: unknown } }).message;
+  for (const obj of parseJsonStream(content)) {
+    if (!isUserMessage(obj)) continue;
+    const msg = (obj as { message: { content: unknown } }).message;
     const texts = extractTextContent(msg.content);
     for (const text of texts) {
       const candidate = filterTaskLine(text);
@@ -151,6 +144,49 @@ export function extractTaskFromTranscript(content: string): string | null {
     }
   }
   return null;
+}
+
+/**
+ * Parse a stream of JSON values (JSONL or pretty-printed).
+ * Yields each top-level JSON object found in the content.
+ */
+function* parseJsonStream(content: string): Generator<unknown> {
+  // Fast path: try JSONL (one object per line)
+  const lines = content.split("\n");
+  let anyParsed = false;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      yield JSON.parse(line);
+      anyParsed = true;
+    } catch {
+      // Not single-line JSON — fall through to brace-matching
+      anyParsed = false;
+      break;
+    }
+  }
+  if (anyParsed) return;
+
+  // Slow path: handle pretty-printed JSON by tracking brace depth
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < content.length; i++) {
+    const ch = content[i];
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        try {
+          yield JSON.parse(content.slice(start, i + 1));
+        } catch {
+          // malformed — skip
+        }
+        start = -1;
+      }
+    }
+  }
 }
 
 function isUserMessage(obj: unknown): boolean {
