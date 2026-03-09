@@ -146,7 +146,7 @@ describe("planHook normal commit", () => {
     assert.equal(plan.commit.subject, "auto(abcdef12): write src/main.ts");
     assert.equal(
       plan.commit.body,
-      "Session: abcdef12-3456-7890-abcd-ef1234567890\nTranscript: ~/.claude/projects/proj/session.jsonl",
+      "Session: abcdef12-3456-7890-abcd-ef1234567890",
     );
   });
 
@@ -214,7 +214,7 @@ describe("buildCommitPlanWithTask", () => {
     assert.equal(commit.subject, "auto(abcdef12): Fix the broken tests");
     assert.match(commit.body!, /^File: src\/main\.ts/);
     assert.match(commit.body!, /Session: abcdef12/);
-    assert.match(commit.body!, /Transcript:/);
+    assert.ok(!commit.body!.includes("Transcript:"));
   });
 
   it("falls back to default plan when task is null", () => {
@@ -240,23 +240,14 @@ describe("buildSessionPrefix", () => {
 // ── buildCommitBody ──────────────────────────────────────────────────
 
 describe("buildCommitBody", () => {
-  it("includes session and transcript", () => {
+  it("includes session only", () => {
     const input = makeInput();
-    const body = buildCommitBody(input, "src/main.ts");
-    assert.equal(
-      body,
-      "Session: abcdef12-3456-7890-abcd-ef1234567890\nTranscript: ~/.claude/projects/proj/session.jsonl",
-    );
-  });
-
-  it("includes only session when no transcript", () => {
-    const input = makeInput({ transcript_path: null });
     const body = buildCommitBody(input, "src/main.ts");
     assert.equal(body, "Session: abcdef12-3456-7890-abcd-ef1234567890");
   });
 
-  it("returns null when no metadata", () => {
-    const input = makeInput({ session_id: null, transcript_path: null });
+  it("returns null when no session", () => {
+    const input = makeInput({ session_id: null });
     assert.equal(buildCommitBody(input, "src/main.ts"), null);
   });
 });

@@ -10,7 +10,6 @@ import {
   getCommitDate,
   getCommitTimestamp,
   extractSessionId,
-  extractTranscriptPath,
   findSnapshotInCommit,
   commandExists,
   shortSha,
@@ -197,16 +196,14 @@ function inspectOrLaunch(fileRef: string, inspect: boolean): void {
     }
   }
   if (!transcriptSource) {
-    const transcriptPath = extractTranscriptPath(body);
-    if (transcriptPath) {
-      const expanded = transcriptPath.replace(/^~/, process.env.HOME || "~");
-      if (existsSync(expanded)) {
-        transcriptSource = expanded;
-      }
+    const home = process.env.HOME || "~";
+    const derived = join(home, ".claude", "projects", projectSlug(root), `${sessionId}.jsonl`);
+    if (existsSync(derived)) {
+      transcriptSource = derived;
     }
   }
   if (!transcriptSource) {
-    console.error(`Commit ${shortSha(sha)} has no transcript (no .transcripts/ snapshot and no Transcript field).`);
+    console.error(`Commit ${shortSha(sha)} has no transcript (no .transcripts/ snapshot and no transcript at derived path).`);
     process.exit(1);
   }
   const commitTimestamp = getCommitTimestamp(sha);

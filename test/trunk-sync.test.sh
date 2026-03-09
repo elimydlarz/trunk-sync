@@ -320,11 +320,11 @@ run_hook "$(make_input "$WT_A/seed.txt" "sess1234" "Edit" "$TRANSCRIPT")"
 SUBJECT=$(last_subject "$WT_A")
 assert_contains "$SUBJECT" "Implement the login page" "subject contains task from transcript"
 
-# 12. Body includes File, Session, and Transcript lines
+# 12. Body includes File and Session lines (no Transcript — path is derived)
 BODY=$(last_body "$WT_A")
 assert_contains "$BODY" "File: seed.txt" "body contains File line when task in subject"
 assert_contains "$BODY" "Session: sess1234" "body contains Session line"
-assert_contains "$BODY" "Transcript: $TRANSCRIPT" "body contains Transcript line"
+assert_not_contains "$BODY" "Transcript:" "body does not contain Transcript line"
 
 # 13. No File line when transcript missing — body has Session only, no blank lines
 setup_repos

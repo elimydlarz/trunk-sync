@@ -201,9 +201,12 @@ exit 0
     );
     chmodSync(join(binDir, "claude"), 0o755);
 
-    // Create a fake transcript with realistic sessionId/cwd fields
-    const transcriptDir = mkdtempSync(join(tmpdir(), "seance-transcripts-"));
+    // Create a fake transcript at the derived path seance will look for
     const originalSessionId = "aaaa-bbbb-cccc-dddd";
+    const realDir = realpathSync(dir);
+    const repoSlug = realDir.replace(/[/.]/g, "-");
+    const transcriptDir = join(process.env.HOME || "", ".claude", "projects", repoSlug);
+    mkdirSync(transcriptDir, { recursive: true });
     const transcriptFile = join(transcriptDir, `${originalSessionId}.jsonl`);
     const transcriptLines = [
       JSON.stringify({ type: "file-history-snapshot", timestamp: "2026-03-01T09:59:59.000Z", sessionId: originalSessionId, cwd: "/original/project" }),
@@ -223,7 +226,7 @@ exit 0
     // (between lines 3 and 4 of the transcript)
     const commitDate = "2026-03-01T10:00:02.500Z";
     execSync(
-      `git commit -m 'auto(abcd1234): add code' -m 'File: code.ts\nSession: ${originalSessionId}\nTranscript: ${transcriptFile}'`,
+      `git commit -m 'auto(abcd1234): add code' -m 'File: code.ts\nSession: ${originalSessionId}'`,
       { cwd: dir, env: { ...process.env, GIT_COMMITTER_DATE: commitDate } }
     );
     const commitSha = gitIn(dir, "rev-parse HEAD");

@@ -7,7 +7,6 @@ import { execSync } from "node:child_process";
 import {
   parseFileRef,
   extractSessionId,
-  extractTranscriptPath,
   blame,
   getCommitBody,
   getCommitTimestamp,
@@ -59,7 +58,7 @@ describe("parseFileRef", () => {
 
 describe("extractSessionId", () => {
   it("extracts session ID from body", () => {
-    const body = "File: src/main.ts\nSession: abc-123-def\nTranscript: /path";
+    const body = "File: src/main.ts\nSession: abc-123-def";
     assert.equal(extractSessionId(body), "abc-123-def");
   });
 
@@ -108,17 +107,6 @@ describe("blame and getCommitBody", () => {
     writeFileSync(file, "committed\nuncommitted\n");
     const sha = blame(file, 2, dir);
     assert.match(sha, /^0+$/);
-  });
-});
-
-describe("extractTranscriptPath", () => {
-  it("extracts transcript path from body", () => {
-    const body = "File: src/main.ts\nSession: abc-123\nTranscript: /path/to/session.jsonl";
-    assert.equal(extractTranscriptPath(body), "/path/to/session.jsonl");
-  });
-
-  it("returns null when no Transcript line", () => {
-    assert.equal(extractTranscriptPath("Session: abc-123"), null);
   });
 });
 

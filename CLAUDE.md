@@ -10,10 +10,10 @@ trunk-sync has two independent layers that share one git repo:
 
 **CLI layer** — a TypeScript CLI (`trunk-sync`) with three commands:
 - `install` — soft checks (git repo warns, missing remote is silent), hard checks (jq, claude), adds the GitHub repo as a marketplace source, then installs the plugin via `claude plugin install` (default project scope, `--scope user` for all repos)
-- `seance` — traces a line of code via `git blame` → commit body → `Session:` + `Transcript:` fields → truncates the session transcript to that commit's timestamp → creates a worktree at that commit → resumes the rewound session so Claude has the same context it had when it wrote the code
+- `seance` — traces a line of code via `git blame` → commit body → `Session:` field → derives transcript path from repo root + session ID → truncates the session transcript to that commit's timestamp → creates a worktree at that commit → resumes the rewound session so Claude has the same context it had when it wrote the code
 - `config` — reads/writes `~/.trunk-sync` config file (key=value format)
 
-The hook writes `Session: <uuid>` and `Transcript: <path>` into every commit body. Seance reads both back. This is the only coupling between the two layers. When `commit-transcripts=true` in `~/.trunk-sync`, the hook also snapshots the transcript into `.transcripts/` and amends the code commit — seance finds these via `git diff-tree`, falling back to the `Transcript:` filesystem path.
+The hook writes `Session: <uuid>` into every commit body. Seance reads it back and derives the transcript path (`~/.claude/projects/<project-slug>/<uuid>.jsonl`) from the repo root and session ID. This is the only coupling between the two layers. When `commit-transcripts=true` in `~/.trunk-sync`, the hook also snapshots the transcript into `.transcripts/` and amends the code commit — seance finds these via `git diff-tree`, falling back to the derived filesystem path.
 
 Key domain concepts: worktree (each agent gets one via `claude -w`), trunk (always `origin/main`), session ID (links commits to Claude conversations).
 
@@ -38,7 +38,7 @@ src/commands/seance.ts        — trunk-sync seance (default/--inspect/--list mo
 src/commands/config.ts        — trunk-sync config (read/write ~/.trunk-sync)
 src/commands/config.test.ts   — config command tests (node:test)
 .transcripts/                 — opt-in session snapshots committed by hook
-src/lib/git.ts                — shared git utilities (blame, parseFileRef, extractSessionId, findSnapshotInCommit, etc.)
+src/lib/git.ts                — shared git utilities (blame, parseFileRef, extractSessionId, findSnapshotInCommit)
 src/lib/git.test.ts           — unit tests (node:test)
 src/commands/seance.test.ts   — integration tests (node:test)
 
@@ -57,7 +57,6 @@ test/local-cleanup.sh         — manual test teardown
 - **deletion-sync**: deleted tracked files are staged and committed when the hook fires with no file_path
 - **session-trace**: commit body includes `Session: <uuid>` for seance lookback
 - **transcript-enrich**: commit subject extracted from session transcript's first user message
-- **transcript-path**: commit body includes `Transcript: <path>` so seance can locate and rewind the session file
 - **install-preconditions**: CLI hard-checks jq and claude; warns if no git repo; silently accepts missing remote
 - **graceful-no-git**: hook exits 0 (no-op) when not inside a git repo
 - **graceful-no-remote**: hook commits locally and silently skips pull/push when no remote is configured
@@ -70,7 +69,7 @@ test/local-cleanup.sh         — manual test teardown
 - **seance-read-only**: resumed agent is restricted to read-only tools (`--allowedTools`) and given a system prompt (`--append-system-prompt`) enforcing seance mode — it cannot edit, write, or create files
 - **config-file**: `~/.trunk-sync` stores user config as key=value; managed via `trunk-sync config`
 - **transcript-snapshot**: when `commit-transcripts=true`, hook copies transcript to `.transcripts/` and amends the code commit to include it
-- **snapshot-lookup**: seance finds snapshot via `git diff-tree` on the code commit, falls back to `Transcript:` filesystem path
+- **snapshot-lookup**: seance finds snapshot via `git diff-tree` on the code commit, falls back to derived transcript path (`~/.claude/projects/<slug>/<sessionId>.jsonl`)
 
 ## Development
 

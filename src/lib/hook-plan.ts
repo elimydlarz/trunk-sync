@@ -107,7 +107,6 @@ export function buildCommitPlanWithTask(
   // When task is present, include File: line in body
   let body = `File: ${relPath}`;
   if (input.session_id) body += `\nSession: ${input.session_id}`;
-  if (input.transcript_path) body += `\nTranscript: ${input.transcript_path}`;
 
   return { ...base, subject, body: body || null };
 }
@@ -121,10 +120,8 @@ export function buildCommitBody(
   input: HookInput,
   _relPath: string | null,
 ): string | null {
-  const parts: string[] = [];
-  if (input.session_id) parts.push(`Session: ${input.session_id}`);
-  if (input.transcript_path) parts.push(`Transcript: ${input.transcript_path}`);
-  return parts.length > 0 ? parts.join("\n") : null;
+  if (!input.session_id) return null;
+  return `Session: ${input.session_id}`;
 }
 
 /**
