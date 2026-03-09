@@ -59,6 +59,28 @@ trunk-sync seance --list
 
 Seance traces `git blame` back to the commit, rewinds the session transcript to that point, checks out the code at that commit, and resumes Claude with the same context it had when it wrote the line. The resumed agent is read-only — it explains and explores but cannot edit.
 
+## Transcript commits
+
+By default, seance finds session transcripts on the local filesystem (`~/.claude/projects/<slug>/<sessionId>.jsonl`). This works when you're tracing code written on the same machine, but the transcript won't exist if the code was written by an agent on a different machine, in CI, or if the local transcript has been cleaned up.
+
+**Enable transcript commits** to solve this — each auto-commit will include a snapshot of the session transcript in `.transcripts/`, so the conversation travels with the code in git history:
+
+```bash
+trunk-sync config commit-transcripts true
+```
+
+With this enabled, seance can find the transcript directly in the commit via `git diff-tree`, regardless of which machine wrote the code. This is the recommended setup for teams and multi-machine workflows.
+
+To disable:
+
+```bash
+trunk-sync config commit-transcripts false
+```
+
+### Security note
+
+Transcripts contain your full conversation with Claude, which may include sensitive context, proprietary code discussions, or credentials you pasted into the chat. With `commit-transcripts=true`, these are committed to git — meaning anyone with repo access can read them. Encryption of snapshots before commit is a likely future addition, which would let transcripts hitch a ride on git without being readable in the clear. For now, only enable this on repos where you're comfortable with transcript visibility, or where access is already restricted.
+
 ## For humans
 
 Developer docs, architecture, and testing: [.humans/README.md](.humans/README.md)

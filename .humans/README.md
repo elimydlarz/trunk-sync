@@ -112,6 +112,14 @@ trunk-sync seance --list
 
 If the commit body has no `Transcript:` field (older commits before transcript recording), seance falls back to `--resume <id> --fork-session` which forks from the end of the session. Less precise, but still useful.
 
+### Transcript commits
+
+By default (`commit-transcripts` unset or `false`), seance relies on the local filesystem to find transcripts — it derives the path from the repo root and session ID (`~/.claude/projects/<slug>/<sessionId>.jsonl`). This only works when the transcript exists locally, which fails for code written on other machines or after transcript cleanup.
+
+When `commit-transcripts=true` (set via `trunk-sync config commit-transcripts true`), the hook copies the session transcript into `.transcripts/` and amends the code commit to include it. Seance then finds the snapshot via `git diff-tree` on the blamed commit, falling back to the filesystem path if no snapshot is found.
+
+**Security**: transcripts are committed in the clear. Encryption before commit is a planned improvement. Until then, only enable on repos with appropriate access controls.
+
 ### Cleanup
 
 The temporary rewound transcript file and the worktree are both cleaned up when Claude exits.
