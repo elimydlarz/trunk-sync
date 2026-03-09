@@ -27,9 +27,11 @@ export function gatherRepoState(input: HookInput): RepoState | null {
   let relPath: string | null = null;
 
   if (filePath) {
-    insideRepo = filePath.startsWith(repoRoot + "/");
+    // Resolve symlinks so /var/... matches /private/var/... on macOS
+    const resolvedFile = existsSync(filePath) ? realpathSync(filePath) : filePath;
+    insideRepo = resolvedFile.startsWith(repoRoot + "/");
     if (insideRepo) {
-      relPath = filePath.slice(repoRoot.length + 1);
+      relPath = resolvedFile.slice(repoRoot.length + 1);
       try {
         execSync(`git check-ignore -q -- "${filePath}"`, { stdio: "ignore" });
         gitignored = true;
