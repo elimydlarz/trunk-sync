@@ -138,6 +138,9 @@ else
 fi
 
 # Sync with other agents working on trunk.
+# No remote? Just commit locally and exit — no sync needed.
+[[ "$HAS_REMOTE" == false ]] && exit 0
+
 # On failure, exit 2 sends the message to the coding agent as hook feedback.
 # The agent doesn't know about this hook, so the error must be self-contained.
 
