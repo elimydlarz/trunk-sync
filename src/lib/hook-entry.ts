@@ -1,10 +1,11 @@
+import { readFileSync } from "node:fs";
 import { parseHookInput, planHook } from "./hook-plan.js";
 import { gatherRepoState, executePlan } from "./hook-execute.js";
 
 function main(): void {
   let rawInput = "";
   try {
-    rawInput = require("fs").readFileSync(0, "utf-8");
+    rawInput = readFileSync(0, "utf-8");
   } catch {
     // no stdin
   }
