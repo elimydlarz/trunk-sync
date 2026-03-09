@@ -47,7 +47,9 @@ test/local-cleanup.sh         — manual test teardown
 - **session-trace**: commit body includes `Session: <uuid>` for seance lookback
 - **transcript-enrich**: commit subject extracted from session transcript's first user message
 - **transcript-path**: commit body includes `Transcript: <path>` so seance can locate and rewind the session file
-- **install-preconditions**: CLI checks git repo, remote, jq, claude before installing
+- **install-preconditions**: CLI hard-checks jq and claude; warns if no git repo; silently accepts missing remote
+- **graceful-no-git**: hook exits 0 (no-op) when not inside a git repo
+- **graceful-no-remote**: hook commits locally and silently skips pull/push when no remote is configured
 - **install-marketplace**: CLI adds the GitHub repo as a marketplace source before installing the plugin
 - **install-scope**: default project scope (`.claude/plugins.json`), `--scope user` for all repos (`~/.claude/plugins.json`)
 - **seance-inspect**: `--inspect` prints commit SHA, subject, session ID without launching claude
