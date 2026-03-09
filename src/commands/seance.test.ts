@@ -108,10 +108,8 @@ describe("seance integration", () => {
     gitIn(dir, "add code.ts");
     gitIn(dir, "commit -m 'auto(abcd1234): add code' -m 'File: code.ts\nSession: aaaa-bbbb-cccc-dddd'");
 
-    assert.throws(
-      () => runSeance(dir, `${file}:1`, binDir),
-      /has no Transcript field/
-    );
+    const output = runSeance(dir, `${file}:1`, binDir);
+    assert.match(output, /has no Transcript field/);
 
     rmSync(binDir, { recursive: true, force: true });
   });
