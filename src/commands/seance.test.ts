@@ -95,13 +95,11 @@ describe("seance integration", () => {
     assert.match(output, /No trunk-sync sessions/);
   });
 
-  it("default mode without transcript falls back to --fork-session", () => {
-    // Create a fake claude binary that records its args and cwd
+  it("default mode without transcript exits with error", () => {
     const binDir = mkdtempSync(join(tmpdir(), "seance-bin-"));
-    const logFile = join(binDir, "claude.log");
     writeFileSync(
       join(binDir, "claude"),
-      `#!/bin/sh\necho "cwd=$(pwd)" > "${logFile}"\necho "args=$*" >> "${logFile}"\nexit 0\n`
+      `#!/bin/sh\nexit 0\n`
     );
     chmodSync(join(binDir, "claude"), 0o755);
 
@@ -109,24 +107,11 @@ describe("seance integration", () => {
     writeFileSync(file, "const x = 1;\n");
     gitIn(dir, "add code.ts");
     gitIn(dir, "commit -m 'auto(abcd1234): add code' -m 'File: code.ts\nSession: aaaa-bbbb-cccc-dddd'");
-    const commitSha = gitIn(dir, "rev-parse HEAD");
-    const short = commitSha.slice(0, 8);
 
-    const output = runSeance(dir, `${file}:1`, binDir);
-
-    // Verify output mentions forking (no rewind since no transcript)
-    assert.match(output, /Forking session aaaa-bbbb-cccc-dddd/);
-    assert.match(output, /Worktree at/);
-    assert.ok(!output.includes("Rewound"), "should not rewind without transcript");
-
-    // Verify claude was called with --fork-session (fallback)
-    const log = readFileSync(logFile, "utf-8");
-    assert.match(log, /--resume aaaa-bbbb-cccc-dddd --fork-session/);
-    assert.match(log, /STOP/);
-
-    // Verify worktree was cleaned up
-    const worktrees = gitIn(dir, "worktree list");
-    assert.ok(!worktrees.includes(`seance-${short}`), "worktree should be removed after claude exits");
+    assert.throws(
+      () => runSeance(dir, `${file}:1`, binDir),
+      /has no Transcript field/
+    );
 
     rmSync(binDir, { recursive: true, force: true });
   });
