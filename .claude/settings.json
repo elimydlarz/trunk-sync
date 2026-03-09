@@ -3,5 +3,13 @@
     "trunk-sync@trunk-sync": true,
     "req-mod-sync@req-mod-sync": true,
     "test-trees@test-trees": true
+  },
+  "extraKnownMarketplaces": {
+    "trunk-sync": {
+      "source": {
+        "source": "github",
+        "repo": "elimydlarz/trunk-sync"
+      }
+    }
   }
 }
