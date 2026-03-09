@@ -285,6 +285,14 @@ function escapeForShell(s: string): string {
   return s.replace(/"/g, '\\"');
 }
 
+function getExitCode(e: unknown): number {
+  if (typeof e === "object" && e !== null && "status" in e) {
+    const status = (e as { status: unknown }).status;
+    if (typeof status === "number") return status;
+  }
+  return 1;
+}
+
 function getStdout(e: unknown): string {
   if (typeof e === "object" && e !== null && "stdout" in e) {
     return String((e as { stdout: unknown }).stdout);
