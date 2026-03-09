@@ -73,7 +73,6 @@ Options:
 
   console.log(`\ntrunk-sync installed successfully (scope: ${scope}).
 
-Next steps:
-  1. Launch agents in worktrees: claude -w
-  2. Each agent's edits will auto-commit and push to origin/main`);
+Every file edit will now auto-commit and sync to the remote.
+Works on main, on branches, or in worktrees (claude -w).`);
 }
