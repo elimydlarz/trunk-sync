@@ -27,7 +27,7 @@ describe("gatherRepoState", () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "hook-exec-test-"));
+    dir = realpathSync(mkdtempSync(join(tmpdir(), "hook-exec-test-")));
     initRepo(dir);
     writeFileSync(join(dir, "file.txt"), "hello\n");
     execSync("git add file.txt && git commit -m init", { cwd: dir });
