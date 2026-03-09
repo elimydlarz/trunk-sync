@@ -331,6 +331,14 @@ describe("extractTaskFromTranscript", () => {
     });
     assert.equal(extractTaskFromTranscript(content), "Real task");
   });
+
+  it("handles pretty-printed JSON (multi-line)", () => {
+    const content = JSON.stringify(
+      { type: "user", message: { role: "user", content: "Pretty printed task" } },
+      null, 2,
+    );
+    assert.equal(extractTaskFromTranscript(content), "Pretty printed task");
+  });
 });
 
 // ── summarizeDeletions ───────────────────────────────────────────────
