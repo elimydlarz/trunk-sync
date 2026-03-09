@@ -120,7 +120,13 @@ export function executePlan(
     if (filePath) {
       execSync(`git add -- "${filePath}"`);
     }
-    execSync(`git commit -m "${escapeForShell(plan.message)}"`);
+    try {
+      execSync(`git commit -m "${escapeForShell(plan.message)}"`);
+    } catch (e: unknown) {
+      // Let git's exit code pass through (e.g. 128 for unresolved merge paths)
+      const code = getExitCode(e);
+      return { exitCode: code, stderr: getStdout(e) };
+    }
     if (plan.sync) return executeSync(plan.sync);
     return { exitCode: 0 };
   }
