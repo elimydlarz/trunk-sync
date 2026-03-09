@@ -1,6 +1,6 @@
 {
   "name": "trunk-sync",
-  "version": "1.0.0",
+  "version": "2.3.0",
   "description": "Maximum continuous integration for multi-agent coding — every edit is committed and pushed to trunk immediately",
   "author": {
     "name": "Eli Mydlarz"

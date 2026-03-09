@@ -70,6 +70,7 @@ test/local-cleanup.sh         — manual test teardown
 - **config-file**: `~/.trunk-sync` stores user config as key=value; managed via `trunk-sync config`
 - **transcript-snapshot**: when `commit-transcripts=true`, hook copies transcript to `.transcripts/` and amends the code commit to include it
 - **snapshot-lookup**: seance finds snapshot via `git diff-tree` on the code commit, falls back to derived transcript path (`~/.claude/projects/<slug>/<sessionId>.jsonl`)
+- **version-sync**: `npm version` automatically updates `.claude-plugin/plugin.json` to match `package.json` via the `version` lifecycle script
 
 ## Development
 
