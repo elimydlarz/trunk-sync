@@ -38,8 +38,8 @@ test/local-cleanup.sh         — manual test teardown
 
 ## Requirements
 
-- **auto-commit**: every Edit/Write fires the hook, which stages and commits the changed file
-- **auto-sync**: after commit, pull from origin/main (--no-rebase) then push HEAD:main
+- **auto-commit**: every Edit/Write fires the hook, which stages and commits the changed file (works on any branch, not just main)
+- **auto-sync**: after commit, pull from origin's default branch (--no-rebase) then push HEAD to it; silently skipped when no remote is configured
 - **conflict-feedback**: merge conflicts exit 2 with self-contained instructions for the agent
 - **conflict-resolve**: if MERGE_HEAD exists, the hook completes the merge (agent already edited)
 - **push-retry**: one automatic pull+push retry on push failure
