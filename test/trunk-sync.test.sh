@@ -24,7 +24,7 @@ make_input() {
 
 create_transcript() {
   local path="$1" message="$2"
-  jq -n --arg msg "$message" '{type:"user", message:{role:"user", content:$msg}}' > "$path"
+  jq -cn --arg msg "$message" '{type:"user", message:{role:"user", content:$msg}}' > "$path"
 }
 
 run_hook() {
