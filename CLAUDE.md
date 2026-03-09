@@ -21,6 +21,7 @@ Key domain concepts: worktree (each agent gets one via `claude -w`), trunk (alwa
 
 ```
 .claude-plugin/plugin.json    — plugin manifest (name, version)
+dist/                         — compiled JS (tracked in git — marketplace installs from repo)
 hooks/hooks.json              — hook registration (Edit|Write|Bash → scripts/trunk-sync.sh)
 scripts/trunk-sync.sh         — 4-line bash wrapper: exec node dist/lib/hook-entry.js
 scripts/sync-plugin-version.js — npm version hook: syncs plugin.json version from package.json
@@ -72,6 +73,7 @@ test/local-cleanup.sh         — manual test teardown
 - **transcript-snapshot**: when `commit-transcripts=true`, hook copies transcript to `.transcripts/` and amends the code commit to include it
 - **snapshot-lookup**: seance finds snapshot via `git diff-tree` on the code commit, falls back to derived transcript path (`~/.claude/projects/<slug>/<sessionId>.jsonl`)
 - **version-sync**: `npm version` automatically updates `.claude-plugin/plugin.json` to match `package.json` via the `version` lifecycle script
+- **dist-tracked**: `dist/` is committed to git (excluding tests and `.d.ts`) so marketplace plugin installs have the compiled hook entry point
 
 ## Development
 
@@ -130,14 +132,17 @@ Two distribution channels — both must be updated together:
 #    - package.json (npm)
 #    - .claude-plugin/plugin.json (plugin)
 
-# 2. Publish to npm (prepublishOnly runs the build)
+# 2. Build (dist/ is tracked — marketplace installs need compiled JS)
+pnpm run build
+
+# 3. Publish to npm (prepublishOnly also runs build)
 pnpm publish
 
-# 3. Push to GitHub (plugin installs from repo root)
+# 4. Push to GitHub (plugin installs from repo root)
 git push origin main
 ```
 
-The npm package includes the plugin files (`scripts/`, `hooks/`, `rules/`, `.claude-plugin/`) alongside the CLI (`dist/`). Test files are excluded from the tarball.
+`dist/` is tracked in git because the marketplace plugin installs directly from the repo — without compiled JS, the hook silently fails. Test files and `.d.ts` are gitignored. The npm tarball uses the `files` field in `package.json` to select what ships.
 
 
 ### Key conventions

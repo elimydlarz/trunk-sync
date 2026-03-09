@@ -1,0 +1,71 @@
+import { execSync } from "node:child_process";
+import { existsSync } from "node:fs";
+export function getGitRoot() {
+    try {
+        return execSync("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+    }
+    catch {
+        return null;
+    }
+}
+export function parseFileRef(ref) {
+    const lastColon = ref.lastIndexOf(":");
+    if (lastColon === -1) {
+        throw new Error(`Expected file:line, e.g. src/main.ts:42`);
+    }
+    const file = ref.slice(0, lastColon);
+    const lineStr = ref.slice(lastColon + 1);
+    const line = Number(lineStr);
+    if (!Number.isInteger(line) || line < 1) {
+        throw new Error(`Expected file:line with a positive integer line number, got: ${ref}`);
+    }
+    if (!existsSync(file)) {
+        throw new Error(`File not found: ${file}`);
+    }
+    return { file, line };
+}
+export function blame(file, line, cwd) {
+    const output = execSync(`git blame "${file}" -L ${line},${line} --porcelain`, {
+        encoding: "utf-8",
+        cwd,
+    });
+    const sha = output.split("\n")[0].split(" ")[0];
+    return sha;
+}
+export function getCommitBody(sha, cwd) {
+    return execSync(`git log -1 --format=%b "${sha}"`, { encoding: "utf-8", cwd }).trim();
+}
+export function getCommitSubject(sha, cwd) {
+    return execSync(`git log -1 --format=%s "${sha}"`, { encoding: "utf-8", cwd }).trim();
+}
+export function getCommitDate(sha, cwd) {
+    return execSync(`git log -1 --format=%ci "${sha}"`, { encoding: "utf-8", cwd }).trim();
+}
+export function extractSessionId(body) {
+    const match = body.match(/^Session:\s*(.+)/m);
+    return match ? match[1].trim() : null;
+}
+export function getCommitTimestamp(sha, cwd) {
+    return execSync(`git log -1 --format=%cI "${sha}"`, { encoding: "utf-8", cwd }).trim();
+}
+export function commandExists(cmd) {
+    try {
+        execSync(`command -v "${cmd}"`, { stdio: "ignore" });
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+export function shortSha(sha) {
+    return sha.slice(0, 8);
+}
+export function findSnapshotInCommit(sha, cwd) {
+    try {
+        const output = execSync(`git diff-tree --root --no-commit-id --name-only -r "${sha}" -- .transcripts/`, { encoding: "utf-8", cwd }).trim();
+        return output || null;
+    }
+    catch {
+        return null;
+    }
+}
