@@ -106,8 +106,8 @@ describe("blame and getCommitBody", () => {
     execSync("git add first.txt && git commit -m 'init'", { cwd: dir });
 
     writeFileSync(file, "committed\nuncommitted\n");
-    const sha = blame(file, 2, dir);
-    assert.match(sha, /^0+$/);
+    const result = blame(file, 2, dir);
+    assert.match(result.sha, /^0+$/);
   });
 });
 
