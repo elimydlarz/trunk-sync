@@ -92,10 +92,11 @@ describe("blame and getCommitBody", () => {
       cwd: dir,
     });
 
-    const sha = blame(file, 1, dir);
-    assert.match(sha, /^[0-9a-f]{40}$/);
+    const result = blame(file, 1, dir);
+    assert.match(result.sha, /^[0-9a-f]{40}$/);
+    assert.equal(result.origLine, 1);
 
-    const body = getCommitBody(sha, dir);
+    const body = getCommitBody(result.sha, dir);
     assert.equal(extractSessionId(body), "test-session-id");
   });
 
