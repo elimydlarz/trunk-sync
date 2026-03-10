@@ -49,6 +49,21 @@ describe("seance integration", () => {
     assert.match(output, /Subject:\s+auto\(abcd1234\): add code/);
   });
 
+  it("--inspect works when blamed line has shifted", () => {
+    const file = join(dir, "code.ts");
+    writeFileSync(file, "const original = 1;\n");
+    gitIn(dir, "add code.ts");
+    gitIn(dir, "commit -m 'auto(abcd1234): add code' -m 'Session: shift-test-session'");
+
+    // Add lines above so original moves from line 1 to line 3
+    writeFileSync(file, "const a = 0;\nconst b = 0;\nconst original = 1;\n");
+    gitIn(dir, "add code.ts");
+    gitIn(dir, "commit -m 'add lines above'");
+
+    const output = runSeance(dir, `${file}:3 --inspect`);
+    assert.match(output, /Session:\s+shift-test-session/);
+  });
+
   it("errors on uncommitted line", () => {
     const file = join(dir, "code.ts");
     writeFileSync(file, "committed\n");
