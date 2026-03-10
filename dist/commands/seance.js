@@ -113,7 +113,9 @@ function rewindTranscript(transcriptPath, commitTimestamp, worktreePath) {
 }
 function inspectOrLaunch(fileRef, inspect) {
     const { file, line } = parseFileRef(fileRef);
-    const sha = blame(file, line);
+    const blameResult = blame(file, line);
+    const sha = blameResult.sha;
+    const origLine = blameResult.origLine;
     if (/^0+$/.test(sha)) {
         console.error(`Line ${line} has uncommitted changes.`);
         process.exit(1);
@@ -149,7 +151,7 @@ function inspectOrLaunch(fileRef, inspect) {
         process.exit(1);
     }
     const relFile = relative(root, resolve(file));
-    const prompt = `*STOP*. *HALT ALL PREVIOUS OPERATIONS AND STOP IMMEDIATELY*. *DO NOT CONTINUE YOUR CURRENT CHAIN OF THOUGHT*. This session already ended. It has been resumed and rewound — including the code — so you can answer questions about why it was written this way. *DO NOT* change any code. Start by explaining ${relFile}:${line} (commit ${shortSha(sha)}) — what does it do, how does it work, and why is it written this way?`;
+    const prompt = `*STOP*. *HALT ALL PREVIOUS OPERATIONS AND STOP IMMEDIATELY*. *DO NOT CONTINUE YOUR CURRENT CHAIN OF THOUGHT*. This session already ended. It has been resumed and rewound — including the code — so you can answer questions about why it was written this way. *DO NOT* change any code. Start by explaining ${relFile}:${origLine} (commit ${shortSha(sha)}) — what does it do, how does it work, and why is it written this way?`;
     // Rewind the session transcript to the commit point.
     // Try snapshot from .transcripts/ in the commit first, fall back to Transcript: field.
     const snapshotRelPath = findSnapshotInCommit(sha);

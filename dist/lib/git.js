@@ -29,8 +29,9 @@ export function blame(file, line, cwd) {
         encoding: "utf-8",
         cwd,
     });
-    const sha = output.split("\n")[0].split(" ")[0];
-    return sha;
+    // Porcelain format first line: <sha> <orig-line> <final-line> <num-lines>
+    const parts = output.split("\n")[0].split(" ");
+    return { sha: parts[0], origLine: Number(parts[1]) };
 }
 export function getCommitBody(sha, cwd) {
     return execSync(`git log -1 --format=%b "${sha}"`, { encoding: "utf-8", cwd }).trim();
