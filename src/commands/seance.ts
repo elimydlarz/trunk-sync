@@ -140,7 +140,9 @@ function rewindTranscript(
 function inspectOrLaunch(fileRef: string, inspect: boolean): void {
   const { file, line } = parseFileRef(fileRef);
 
-  const sha = blame(file, line);
+  const blameResult = blame(file, line);
+  const sha = blameResult.sha;
+  const origLine = blameResult.origLine;
   if (/^0+$/.test(sha)) {
     console.error(`Line ${line} has uncommitted changes.`);
     process.exit(1);
