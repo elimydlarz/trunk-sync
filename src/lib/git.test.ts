@@ -109,6 +109,19 @@ describe("blame and getCommitBody", () => {
     const result = blame(file, 2, dir);
     assert.match(result.sha, /^0+$/);
   });
+
+  it("returns original line number when lines are added above", () => {
+    const file = join(dir, "file.txt");
+    writeFileSync(file, "target line\n");
+    execSync("git add file.txt && git commit -m 'first'", { cwd: dir });
+
+    // Add two lines above, pushing 'target line' from line 1 to line 3
+    writeFileSync(file, "new line A\nnew line B\ntarget line\n");
+    execSync("git add file.txt && git commit -m 'second'", { cwd: dir });
+
+    const result = blame(file, 3, dir);
+    assert.equal(result.origLine, 1, "origLine should be 1 (where it was in the first commit)");
+  });
 });
 
 describe("getCommitTimestamp", () => {
