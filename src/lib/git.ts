@@ -26,13 +26,14 @@ export function parseFileRef(ref: string): { file: string; line: number } {
   return { file, line };
 }
 
-export function blame(file: string, line: number, cwd?: string): string {
+export function blame(file: string, line: number, cwd?: string): { sha: string; origLine: number } {
   const output = execSync(`git blame "${file}" -L ${line},${line} --porcelain`, {
     encoding: "utf-8",
     cwd,
   });
-  const sha = output.split("\n")[0].split(" ")[0];
-  return sha;
+  // Porcelain format first line: <sha> <orig-line> <final-line> <num-lines>
+  const parts = output.split("\n")[0].split(" ");
+  return { sha: parts[0], origLine: Number(parts[1]) };
 }
 
 export function getCommitBody(sha: string, cwd?: string): string {
