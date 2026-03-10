@@ -177,6 +177,60 @@ exit 0
     rmSync(binDir, { recursive: true, force: true });
   });
 
+  it("prompt uses original line number from blamed commit, not current line", () => {
+    const binDir = mkdtempSync(join(tmpdir(), "seance-bin-"));
+    const logFile = join(binDir, "claude.log");
+    writeFileSync(
+      join(binDir, "claude"),
+      `#!/bin/sh
+echo "args=$*" > "${logFile}"
+exit 0
+`
+    );
+    chmodSync(join(binDir, "claude"), 0o755);
+
+    const originalSessionId = "orig-line-test-session";
+    const realDir = realpathSync(dir);
+    const repoSlug = realDir.replace(/[/.]/g, "-");
+    const transcriptDir = join(process.env.HOME || "", ".claude", "projects", repoSlug);
+    mkdirSync(transcriptDir, { recursive: true });
+    const transcriptFile = join(transcriptDir, `${originalSessionId}.jsonl`);
+
+    // Commit 1: 'target line' is at line 1
+    const file = join(dir, "code.ts");
+    const commitDate = "2026-03-01T10:00:01.000Z";
+    writeFileSync(file, "const target = true;\n");
+    gitIn(dir, "add code.ts");
+    execSync(
+      `git commit -m 'auto(abcd1234): add code' -m 'Session: ${originalSessionId}'`,
+      { cwd: dir, env: { ...process.env, GIT_COMMITTER_DATE: commitDate } }
+    );
+
+    // Commit 2: add lines above, pushing 'target' from line 1 → line 4
+    writeFileSync(file, "import a from 'a';\nimport b from 'b';\nimport c from 'c';\nconst target = true;\n");
+    gitIn(dir, "add code.ts");
+    gitIn(dir, "commit -m 'add imports'");
+
+    // Write a transcript that covers the first commit's timestamp
+    const transcriptLines = [
+      JSON.stringify({ type: "user", timestamp: "2026-03-01T10:00:00.000Z", sessionId: originalSessionId, cwd: dir, message: { role: "user", content: "task" } }),
+      JSON.stringify({ type: "assistant", timestamp: "2026-03-01T10:00:01.000Z", sessionId: originalSessionId, cwd: dir, message: { role: "assistant", content: [{ type: "text", text: "done" }] } }),
+    ];
+    writeFileSync(transcriptFile, transcriptLines.join("\n") + "\n");
+
+    // Seance line 4 in current file — should blame back to commit 1 where it was line 1
+    const output = runSeance(dir, `${file}:4`, binDir);
+    assert.match(output, /Rewound session to commit/);
+
+    // The prompt passed to claude should reference line 1, not line 4
+    const log = readFileSync(logFile, "utf-8");
+    assert.match(log, /code\.ts:1/, "prompt should reference original line 1, not current line 4");
+    assert.ok(!log.includes("code.ts:4"), "prompt should NOT reference current line 4");
+
+    rmSync(binDir, { recursive: true, force: true });
+    rmSync(transcriptDir, { recursive: true, force: true });
+  });
+
   it("default mode with transcript rewinds session to commit point", () => {
     const binDir = mkdtempSync(join(tmpdir(), "seance-bin-"));
     const logFile = join(binDir, "claude.log");
