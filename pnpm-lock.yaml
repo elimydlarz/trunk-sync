@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@susu-eng/trunk-sync':
+        specifier: ^2.4.0
+        version: 2.4.0
     devDependencies:
       '@types/node':
         specifier: ^22
@@ -176,6 +180,10 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@susu-eng/trunk-sync@2.4.0':
+    resolution: {integrity: sha512-B9h+c1VZ7o6xGIo7ddIlM5quwFUH+LgKUqz+oKvd+EAOoABZbza1BigQCs0hG8LJL01jTxSHd38kErGc4d97Ag==}
+    hasBin: true
+
   '@types/node@22.19.15':
     resolution: {integrity: sha512-F0R/h2+dsy5wJAUe3tAU6oqa2qbWY5TpNfL/RGmo1y38hiyO1w3x2jPtt76wmuaJI4DQnOBu21cNXQ2STIUUWg==}
 
@@ -287,6 +295,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.3':
     optional: true
+
+  '@susu-eng/trunk-sync@2.4.0': {}
 
   '@types/node@22.19.15':
     dependencies:

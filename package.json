@@ -39,5 +39,8 @@
     "git",
     "sync",
     "trunk-based-development"
-  ]
+  ],
+  "dependencies": {
+    "@susu-eng/trunk-sync": "^2.4.0"
+  }
 }

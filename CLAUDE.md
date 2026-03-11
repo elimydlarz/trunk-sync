@@ -71,7 +71,7 @@ test/local-cleanup.sh         — manual test teardown
 - **seance-rewind-cleanup**: the temporary rewound transcript file is deleted after Claude exits
 - **seance-read-only**: resumed agent is restricted to read-only tools (`--allowedTools`) and given a system prompt (`--append-system-prompt`) enforcing seance mode — it cannot edit, write, or create files
 - **config-file**: `~/.trunk-sync` stores user config as key=value; managed via `trunk-sync config`
-- **config-get**: `trunk-sync config <key>` prints the value of a single key; exits 1 with "Key not found" if unset
+- **config-get**: `trunk-sync config <key>` prints the value of a single key, falling back to a built-in default (e.g. `commit-transcripts` defaults to `false`); exits 1 with "Unknown key" for unrecognized keys
 - **transcript-snapshot**: when `commit-transcripts=true`, hook copies transcript to `.transcripts/` and amends the code commit to include it
 - **snapshot-lookup**: seance finds snapshot via `git diff-tree` on the code commit, falls back to derived transcript path (`~/.claude/projects/<slug>/<sessionId>.jsonl`)
 - **version-sync**: `npm version` automatically updates `.claude-plugin/plugin.json` to match `package.json` via the `version` lifecycle script

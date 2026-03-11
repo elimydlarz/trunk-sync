@@ -2,6 +2,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
+const DEFAULTS: Record<string, string> = {
+  "commit-transcripts": "false",
+};
+
 const USAGE = `Usage: trunk-sync config                   Show all config
        trunk-sync config <key>               Get a value
        trunk-sync config <key>=<value>       Set a value
@@ -81,9 +85,9 @@ export function configCommand(args: string[]): void {
   if (eq === -1) {
     // Single key — read its value
     const map = readConfig();
-    const value = map.get(arg);
+    const value = map.get(arg) ?? DEFAULTS[arg];
     if (value === undefined) {
-      console.error(`Key not found: ${arg}`);
+      console.error(`Unknown key: ${arg}`);
       process.exit(1);
     }
     console.log(value);
