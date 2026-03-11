@@ -59,6 +59,19 @@ describe("config command", () => {
     assert.match(stdout, /other=value/);
   });
 
+  it("get a single value", () => {
+    writeFileSync(configFile, "commit-transcripts=true\nother=value\n");
+    const { stdout, exitCode } = runConfig("commit-transcripts", { HOME: process.env.HOME! });
+    assert.equal(exitCode, 0);
+    assert.equal(stdout, "true");
+  });
+
+  it("get nonexistent key errors", () => {
+    const { stderr, exitCode } = runConfig("nonexistent", { HOME: process.env.HOME! });
+    assert.equal(exitCode, 1);
+    assert.match(stderr, /Key not found/);
+  });
+
   it("unset a value", () => {
     writeFileSync(configFile, "commit-transcripts=true\nother=value\n");
     runConfig("--unset commit-transcripts", { HOME: process.env.HOME! });

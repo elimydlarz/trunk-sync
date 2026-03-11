@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 
 const USAGE = `Usage: trunk-sync config                   Show all config
+       trunk-sync config <key>               Get a value
        trunk-sync config <key>=<value>       Set a value
        trunk-sync config --unset <key>       Remove a key
 
@@ -78,8 +79,15 @@ export function configCommand(args: string[]): void {
   const arg = positional[0];
   const eq = arg.indexOf("=");
   if (eq === -1) {
-    console.error(`Expected key=value, got: ${arg}`);
-    process.exit(1);
+    // Single key — read its value
+    const map = readConfig();
+    const value = map.get(arg);
+    if (value === undefined) {
+      console.error(`Key not found: ${arg}`);
+      process.exit(1);
+    }
+    console.log(value);
+    return;
   }
   const key = arg.slice(0, eq);
   const value = arg.slice(eq + 1);
