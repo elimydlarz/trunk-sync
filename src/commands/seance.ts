@@ -96,7 +96,10 @@ function rewindTranscript(
   const expandedPath = transcriptPath.replace(/^~/, process.env.HOME || "~");
   if (!existsSync(expandedPath)) return null;
 
-  const cutoff = new Date(commitTimestamp).getTime();
+  // Git timestamps have second precision; transcript timestamps have millisecond
+  // precision. Adding 999ms includes the full second of the commit so we don't
+  // cut off transcript entries that fall within the same second as the commit.
+  const cutoff = new Date(commitTimestamp).getTime() + 999;
   const lines = readFileSync(expandedPath, "utf-8").split("\n").filter(Boolean);
 
   // Find the last line whose timestamp is <= the commit timestamp.
