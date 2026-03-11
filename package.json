@@ -1,6 +1,6 @@
 {
   "name": "@susu-eng/trunk-sync",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "type": "module",
   "description": "Maximum continuous integration for multi-agent coding — every edit is committed and pushed to trunk immediately",
   "bin": {
