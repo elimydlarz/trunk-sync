@@ -1,8 +1,8 @@
 {
   "enabledPlugins": {
-    "trunk-sync@trunk-sync": true,
     "req-mod-sync@req-mod-sync": true,
-    "test-trees@test-trees": true
+    "test-trees@test-trees": true,
+    "trunk-sync@trunk-sync": true
   },
   "extraKnownMarketplaces": {
     "trunk-sync": {
