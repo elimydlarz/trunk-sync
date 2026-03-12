@@ -39,6 +39,7 @@ src/commands/install.ts       — trunk-sync install
 src/commands/seance.ts        — trunk-sync seance (default/--inspect/--list modes)
 src/commands/config.ts        — trunk-sync config (read/write ~/.trunk-sync)
 src/commands/config.test.ts   — config command tests (node:test)
+src/commands/install.test.ts  — install command tests (node:test)
 .transcripts/                 — opt-in session snapshots committed by hook
 src/lib/git.ts                — shared git utilities (blame, parseFileRef, extractSessionId, findSnapshotInCommit)
 src/lib/git.test.ts           — unit tests (node:test)
@@ -82,11 +83,11 @@ test/local-cleanup.sh         — manual test teardown
 ### Tests
 
 ```bash
-# Hook tests (shell, TAP output)
-bash test/trunk-sync.test.sh
-
 # CLI tests (TypeScript, node:test)
 pnpm run build && pnpm test
+
+# Hook e2e tests (shell, TAP output)
+pnpm run test:e2e
 ```
 
 Hook tests create isolated temp repos with worktrees and a bare remote. Safe to run anywhere — no network access needed.
@@ -153,3 +154,13 @@ git push origin main
 - CLI has zero runtime dependencies — only devDependencies (typescript, tsx, @types/node)
 - All TypeScript imports use `.js` extensions (Node16 ESM requirement)
 - Hook exit codes: 0 = success/no-op, 2 = conflict/failure with agent feedback on stderr
+
+### Testing conventions
+
+- Every exported function must have tests — when adding a new export, add tests in the same PR
+- Three-layer rule: pure logic → unit tests; git/fs callers → integration tests (real temp repos); shell E2E as safety net
+- Test file placement: `foo.ts` → `foo.test.ts`, CLI tests in `src/commands/`
+- Reuse helpers: `initRepo()`, `makeInput()`, `makeState()`, `setupRepoWithRemote()`
+- No mocks for git — use real temp repos with `mkdtempSync`
+- CLI command tests via subprocess (`node dist/cli.js`)
+- Execution functions (`executePlan`, `executeSync`, `amendWithTranscriptSnapshot`) require tests covering changed behavior

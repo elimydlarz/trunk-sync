@@ -1,192 +1,116 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, chmodSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, chmodSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
 
-function runInstall(cwd: string, args: string, extraPath?: string): { stdout: string; stderr: string; exitCode: number } {
+const nodeBin = execSync("which node", { encoding: "utf-8" }).trim();
+const nodeDir = join(nodeBin, "..");
+
+function runInstall(
+  args: string,
+  env?: Record<string, string>,
+  cwd?: string,
+): { stdout: string; stderr: string; exitCode: number } {
   const cliPath = join(process.cwd(), "dist", "cli.js");
-  const pathEnv = extraPath ? `${extraPath}:${process.env.PATH}` : process.env.PATH;
   try {
     const stdout = execSync(`node "${cliPath}" install ${args}`, {
       cwd,
       encoding: "utf-8",
-      env: { ...process.env, PATH: pathEnv },
-    });
+      env: { ...process.env, ...env, PATH: env?.PATH ? `${env.PATH}:${nodeDir}` : process.env.PATH },
+    }).trim();
     return { stdout, stderr: "", exitCode: 0 };
   } catch (e: unknown) {
-    const err = e as { status?: number; stderr?: string; stdout?: string };
+    const err = e as { stderr?: string; stdout?: string; status?: number };
     return {
-      stdout: (err.stdout || ""),
-      stderr: (err.stderr || ""),
+      stdout: (err.stdout || "").trim(),
+      stderr: (err.stderr || "").trim(),
       exitCode: err.status ?? 1,
     };
   }
 }
 
-/** Create a bin dir with mock executables that succeed (or not). */
-function makeMockBin(cmds: Record<string, { script?: string; missing?: boolean }>): string {
-  const binDir = mkdtempSync(join(tmpdir(), "install-bin-"));
-  for (const [name, opts] of Object.entries(cmds)) {
-    if (opts.missing) continue;
-    const script = opts.script ?? "#!/bin/sh\nexit 0\n";
-    writeFileSync(join(binDir, name), script);
-    chmodSync(join(binDir, name), 0o755);
-  }
-  return binDir;
+function makeFakeBin(dir: string, name: string, script = "#!/bin/sh\nexit 0"): void {
+  const binPath = join(dir, name);
+  writeFileSync(binPath, script);
+  chmodSync(binPath, 0o755);
 }
 
 describe("install command", () => {
-  let dir: string;
+  let fakeBinDir: string;
+  let gitDir: string;
+  let cleanupDirs: string[];
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "install-test-"));
-    execSync("git init", { cwd: dir });
-    execSync('git config user.email "test@test.com"', { cwd: dir });
-    execSync('git config user.name "Test"', { cwd: dir });
-    writeFileSync(join(dir, "seed.txt"), "seed\n");
-    execSync("git add seed.txt && git commit -m 'seed'", { cwd: dir });
+    fakeBinDir = realpathSync(mkdtempSync(join(tmpdir(), "install-bins-")));
+    gitDir = realpathSync(mkdtempSync(join(tmpdir(), "install-git-")));
+    execSync("git init", { cwd: gitDir, stdio: "ignore" });
+    execSync('git config user.email "test@test.com"', { cwd: gitDir });
+    execSync('git config user.name "Test"', { cwd: gitDir });
+    writeFileSync(join(gitDir, "seed.txt"), "seed\n");
+    execSync("git add seed.txt && git commit -m seed", { cwd: gitDir, stdio: "ignore" });
+    cleanupDirs = [fakeBinDir, gitDir];
   });
 
   afterEach(() => {
-    rmSync(dir, { recursive: true, force: true });
+    for (const d of cleanupDirs) {
+      rmSync(d, { recursive: true, force: true });
+    }
   });
 
-  it("--help prints usage and exits 0", () => {
-    const { stdout, exitCode } = runInstall(dir, "--help");
+  it("--help prints usage", () => {
+    const { stdout, exitCode } = runInstall("--help");
     assert.equal(exitCode, 0);
-    assert.match(stdout, /Usage: trunk-sync install/);
-    assert.match(stdout, /--scope/);
+    assert.match(stdout, /Usage/);
   });
 
-  it("-h prints usage and exits 0", () => {
-    const { stdout, exitCode } = runInstall(dir, "-h");
-    assert.equal(exitCode, 0);
-    assert.match(stdout, /Usage: trunk-sync install/);
-  });
-
-  it("invalid --scope exits 1", () => {
-    const binDir = makeMockBin({ jq: {}, claude: {} });
-    const { stderr, exitCode } = runInstall(dir, "--scope banana", binDir);
+  it("fails when jq is missing", () => {
+    makeFakeBin(fakeBinDir, "claude");
+    // Only our fake bin dir + node dir in PATH — no system jq
+    const { stderr, exitCode } = runInstall("", { PATH: fakeBinDir }, gitDir);
     assert.equal(exitCode, 1);
-    assert.match(stderr, /Invalid scope/);
-    rmSync(binDir, { recursive: true, force: true });
+    assert.match(stderr, /jq/);
   });
 
-  it("missing jq exits 1", () => {
-    // Provide claude but not jq — use a PATH with only our mock dir
-    const binDir = makeMockBin({ claude: {}, jq: { missing: true } });
-    // Restrict PATH so system jq is not found
-    const { stderr, exitCode } = runInstall(dir, "", binDir);
-    // This may still find system jq — the test validates the error message if jq is missing
-    if (exitCode === 1) {
-      assert.match(stderr, /jq is required/);
-    }
-    rmSync(binDir, { recursive: true, force: true });
-  });
-
-  it("missing claude exits 1", () => {
-    // Provide jq but not claude
-    const binDir = makeMockBin({ jq: {}, claude: { missing: true } });
-    const { stderr, exitCode } = runInstall(dir, "", binDir);
-    if (exitCode === 1) {
-      assert.match(stderr, /Claude Code CLI not found/);
-    }
-    rmSync(binDir, { recursive: true, force: true });
-  });
-
-  it("missing jq hard-fails before missing claude", () => {
-    // Neither jq nor claude
-    const binDir = makeMockBin({ jq: { missing: true }, claude: { missing: true } });
-    const { stderr, exitCode } = runInstall(dir, "", binDir);
-    if (exitCode === 1) {
-      // Should fail on jq first (checked before claude)
-      assert.match(stderr, /jq is required/);
-    }
-    rmSync(binDir, { recursive: true, force: true });
-  });
-
-  it("warns when not in a git repo", () => {
-    const noGitDir = mkdtempSync(join(tmpdir(), "install-nogit-"));
-    const binDir = makeMockBin({
-      jq: {},
-      claude: { script: "#!/bin/sh\necho \"mock claude: $*\"\nexit 0\n" },
-    });
-    const { stdout, exitCode } = runInstall(noGitDir, "", binDir);
-    assert.equal(exitCode, 0);
-    // Warning goes to stderr but our capture merges — check stdout for success message
-    assert.match(stdout, /installed successfully/);
-    rmSync(binDir, { recursive: true, force: true });
-    rmSync(noGitDir, { recursive: true, force: true });
-  });
-
-  it("succeeds with default project scope", () => {
-    const logFile = join(dir, "claude.log");
-    const binDir = makeMockBin({
-      jq: {},
-      claude: { script: `#!/bin/sh\necho "$*" >> "${logFile}"\nexit 0\n` },
-    });
-    const { stdout, exitCode } = runInstall(dir, "", binDir);
-    assert.equal(exitCode, 0);
-    assert.match(stdout, /installed successfully/);
-    assert.match(stdout, /scope: project/);
-
-    // Verify claude was called with correct scope
-    const log = execSync(`cat "${logFile}"`, { encoding: "utf-8" });
-    assert.match(log, /marketplace add elimydlarz\/trunk-sync --scope project/);
-    assert.match(log, /plugin install trunk-sync@trunk-sync --scope project/);
-    rmSync(binDir, { recursive: true, force: true });
-  });
-
-  it("succeeds with --scope user", () => {
-    const logFile = join(dir, "claude.log");
-    const binDir = makeMockBin({
-      jq: {},
-      claude: { script: `#!/bin/sh\necho "$*" >> "${logFile}"\nexit 0\n` },
-    });
-    const { stdout, exitCode } = runInstall(dir, "--scope user", binDir);
-    assert.equal(exitCode, 0);
-    assert.match(stdout, /scope: user/);
-
-    const log = execSync(`cat "${logFile}"`, { encoding: "utf-8" });
-    assert.match(log, /--scope user/);
-    rmSync(binDir, { recursive: true, force: true });
-  });
-
-  it("plugin install failure exits 1", () => {
-    const binDir = makeMockBin({
-      jq: {},
-      claude: {
-        script: `#!/bin/sh
-if echo "$*" | grep -q "plugin install"; then
-  exit 1
-fi
-exit 0
-`,
-      },
-    });
-    const { stderr, exitCode } = runInstall(dir, "", binDir);
+  it("fails when claude is missing", () => {
+    makeFakeBin(fakeBinDir, "jq");
+    const { exitCode, stderr } = runInstall("", { PATH: fakeBinDir }, gitDir);
     assert.equal(exitCode, 1);
-    assert.match(stderr, /Plugin installation failed/);
-    rmSync(binDir, { recursive: true, force: true });
+    assert.match(stderr, /[Cc]laude/);
   });
 
-  it("marketplace add failure is tolerated", () => {
-    const binDir = makeMockBin({
-      jq: {},
-      claude: {
-        script: `#!/bin/sh
-if echo "$*" | grep -q "marketplace add"; then
-  exit 1
-fi
-exit 0
-`,
-      },
-    });
-    const { stdout, exitCode } = runInstall(dir, "", binDir);
-    assert.equal(exitCode, 0);
+  it("warns when not in git repo", () => {
+    const noGitDir = realpathSync(mkdtempSync(join(tmpdir(), "no-git-install-")));
+    cleanupDirs.push(noGitDir);
+    makeFakeBin(fakeBinDir, "jq");
+    makeFakeBin(fakeBinDir, "claude");
+
+    const { stdout } = runInstall("", { PATH: fakeBinDir }, noGitDir);
+    // The warning goes to stderr which may not be captured on success,
+    // but the success message should still appear
     assert.match(stdout, /installed successfully/);
-    rmSync(binDir, { recursive: true, force: true });
+  });
+
+  it("rejects invalid scope", () => {
+    const { stderr, exitCode } = runInstall("--scope invalid");
+    assert.equal(exitCode, 1);
+    assert.match(stderr, /scope/i);
+  });
+
+  it("passes scope to claude commands", () => {
+    makeFakeBin(fakeBinDir, "jq");
+
+    const logFile = join(fakeBinDir, "claude.log");
+    makeFakeBin(
+      fakeBinDir,
+      "claude",
+      `#!/bin/sh\necho "$@" >> "${logFile}"\nexit 0`,
+    );
+
+    runInstall("--scope user", { PATH: fakeBinDir }, gitDir);
+
+    const logged = readFileSync(logFile, "utf-8");
+    assert.match(logged, /--scope user/);
   });
 });

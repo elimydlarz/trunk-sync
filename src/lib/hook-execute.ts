@@ -213,7 +213,7 @@ function amendWithTranscriptSnapshot(input: HookInput, state: RepoState): void {
   }
 }
 
-function executeSync(sync: SyncPlan): { exitCode: number; stderr?: string } {
+export function executeSync(sync: SyncPlan): { exitCode: number; stderr?: string } {
   const { targetBranch, currentBranch } = sync;
 
   // Pull from origin

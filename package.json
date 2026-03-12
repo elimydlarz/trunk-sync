@@ -11,6 +11,7 @@
     "postbuild": "chmod +x dist/cli.js",
     "dev": "tsx src/cli.ts",
     "test": "node --test --test-reporter spec 'dist/**/*.test.js'",
+    "test:e2e": "bash test/trunk-sync.test.sh",
     "version": "node scripts/sync-plugin-version.js && git add .claude-plugin/plugin.json",
     "prepublishOnly": "pnpm run build"
   },

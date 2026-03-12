@@ -199,7 +199,7 @@ function amendWithTranscriptSnapshot(input, state) {
         // best-effort — don't fail the hook if snapshot fails
     }
 }
-function executeSync(sync) {
+export function executeSync(sync) {
     const { targetBranch, currentBranch } = sync;
     // Pull from origin
     try {
