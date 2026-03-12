@@ -3,5 +3,12 @@
     "req-mod-sync@req-mod-sync": true,
     "test-trees@test-trees": true
   },
-  "extraKnownMarketplaces": {}
+  "extraKnownMarketplaces": {
+    "susu-eng": {
+      "source": {
+        "source": "github",
+        "repo": "elimydlarz/trunk-sync"
+      }
+    }
+  }
 }

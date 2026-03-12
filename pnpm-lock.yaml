@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@susu-eng/trunk-sync':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^3.0.0
+        version: 3.0.0
     devDependencies:
       '@types/node':
         specifier: ^22
@@ -184,6 +184,10 @@ packages:
     resolution: {integrity: sha512-B9h+c1VZ7o6xGIo7ddIlM5quwFUH+LgKUqz+oKvd+EAOoABZbza1BigQCs0hG8LJL01jTxSHd38kErGc4d97Ag==}
     hasBin: true
 
+  '@susu-eng/trunk-sync@3.0.0':
+    resolution: {integrity: sha512-pVLhkITsyB7SRFTLySaY5ZXLtAnVZtDhPGkF2vj1TRve9ZaYmDLhCQD/cMO9Ixf+ZJl1zB2tWNRGKl2N+8Bpdw==}
+    hasBin: true
+
   '@types/node@22.19.15':
     resolution: {integrity: sha512-F0R/h2+dsy5wJAUe3tAU6oqa2qbWY5TpNfL/RGmo1y38hiyO1w3x2jPtt76wmuaJI4DQnOBu21cNXQ2STIUUWg==}
 
@@ -297,6 +301,10 @@ snapshots:
     optional: true
 
   '@susu-eng/trunk-sync@2.4.0': {}
+
+  '@susu-eng/trunk-sync@3.0.0':
+    dependencies:
+      '@susu-eng/trunk-sync': 2.4.0
 
   '@types/node@22.19.15':
     dependencies:
