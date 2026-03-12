@@ -51,7 +51,7 @@ Options:
     // Install the plugin from the marketplace
     console.log(`Installing trunk-sync plugin (scope: ${scope})...`);
     try {
-        execSync(`claude plugin install trunk-sync@trunk-sync --scope ${scope}`, {
+        execSync(`claude plugin install susu-eng@trunk-sync --scope ${scope}`, {
             stdio: "inherit",
         });
     }

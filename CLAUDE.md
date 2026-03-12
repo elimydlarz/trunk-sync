@@ -21,6 +21,7 @@ Key domain concepts: worktree (each agent gets one via `claude -w`), trunk (alwa
 
 ```
 .claude-plugin/plugin.json    — plugin manifest (name, version)
+.claude-plugin/marketplace.json — marketplace definition (name: susu-eng, lists plugins)
 dist/                         — compiled JS (tracked in git — marketplace installs from repo)
 hooks/hooks.json              — hook registration (Edit|Write|Bash → scripts/trunk-sync.sh)
 scripts/trunk-sync.sh         — 4-line bash wrapper: exec node dist/lib/hook-entry.js
@@ -63,7 +64,7 @@ test/local-cleanup.sh         — manual test teardown
 - **install-preconditions**: CLI hard-checks jq and claude; warns if no git repo; silently accepts missing remote
 - **graceful-no-git**: hook exits 0 (no-op) when not inside a git repo
 - **graceful-no-remote**: hook commits locally and silently skips pull/push when no remote is configured
-- **install-marketplace**: CLI adds the GitHub repo as a marketplace source before installing the plugin
+- **install-marketplace**: CLI adds the GitHub repo as marketplace `susu-eng` (not `trunk-sync`, to avoid cache path collision with the plugin name) before installing `susu-eng@trunk-sync`
 - **install-scope**: default project scope (`.claude/plugins.json`), `--scope user` for all repos (`~/.claude/plugins.json`)
 - **seance-inspect**: `--inspect` prints commit SHA, subject, session ID without launching claude
 - **seance-list**: `--list` deduplicates sessions from `git log --grep` and prints a table
