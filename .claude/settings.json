@@ -1,7 +1,8 @@
 {
   "enabledPlugins": {
     "req-mod-sync@req-mod-sync": true,
-    "test-trees@test-trees": true
+    "test-trees@test-trees": true,
+    "trunk-sync@susu-eng": true
   },
   "extraKnownMarketplaces": {
     "susu-eng": {
